@@ -88,6 +88,7 @@ bool SqliteMarketDataStore::initializeSchema(QString* errorMessage) {
         setError(errorMessage, sqlError(foreignKeys));
         return false;
     }
+    foreignKeys.finish();
 
     QSqlQuery versionQuery(m_database);
     if (!versionQuery.exec(QStringLiteral("PRAGMA user_version")) || !versionQuery.next()) {
@@ -95,6 +96,7 @@ bool SqliteMarketDataStore::initializeSchema(QString* errorMessage) {
         return false;
     }
     const int schemaVersion = versionQuery.value(0).toInt();
+    versionQuery.finish();
     if (schemaVersion > currentSchemaVersion) {
         setError(errorMessage,
                  QStringLiteral("database schema version %1 is newer than supported version %2")
