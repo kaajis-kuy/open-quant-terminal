@@ -229,6 +229,39 @@ private slots:
         QCOMPARE(server.requestCount(), 2);
     }
 
+
+    void cancellationInvalidatesPendingRetryTimer() {
+        MockFredServer server;
+        QVERIFY(server.listen());
+        server.enqueue({429, R"({"error":"rate limited"})", 0, QByteArrayLiteral("1")});
+        server.enqueue({200, page(1, 0, {{QStringLiteral("2020-04-01"), QStringLiteral("fresh")}}), 1800});
+        server.enqueue({200, page(1, 0, {{QStringLiteral("2020-07-01"), QStringLiteral("duplicate")}})});
+
+        FredClient client(nullptr, nullptr, server.endpoint());
+        QSignalSpy spy(&client, &FredClient::finished);
+        QVERIFY(client.fetchObservations(request(), QStringLiteral("cancel-retry"), 1));
+        QTRY_COMPARE_WITH_TIMEOUT(server.requestCount(), 1, 2000);
+        QTest::qWait(100); // Allow the 429 response to schedule its retry timer.
+
+        client.cancel();
+        QVERIFY(client.fetchObservations(request(), QStringLiteral("after-cancel"), 1));
+        QTRY_COMPARE_WITH_TIMEOUT(spy.size(), 2, 5000);
+
+        const auto cancelled = spy.takeFirst();
+        QCOMPARE(cancelled.at(0).toString(), QStringLiteral("cancel-retry"));
+        QCOMPARE(cancelled.at(3).toString(), QStringLiteral("FRED request cancelled"));
+        const auto completed = spy.takeFirst();
+        QCOMPARE(completed.at(0).toString(), QStringLiteral("after-cancel"));
+        QVERIFY(completed.at(3).toString().isEmpty());
+
+        const QJsonObject output = QJsonDocument::fromJson(completed.at(1).toByteArray()).object();
+        const QJsonArray rows = output.value(QStringLiteral("observations")).toArray();
+        QCOMPARE(rows.size(), 1);
+        QCOMPARE(rows.at(0).toObject().value(QStringLiteral("value")).toString(),
+                 QStringLiteral("fresh"));
+        QCOMPARE(server.requestCount(), 2);
+    }
+
     void reportsHttpClientError() {
         MockFredServer server;
         QVERIFY(server.listen());
