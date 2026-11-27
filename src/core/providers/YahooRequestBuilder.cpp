@@ -75,9 +75,7 @@ YahooBuiltRequest YahooRequestBuilder::chart(
     }
     const QString prefix = base.path().endsWith(QLatin1Char('/'))
         ? base.path().chopped(1) : base.path();
-    const QString encodedSymbol = QString::fromLatin1(
-        QUrl::toPercentEncoding(symbol));
-    base.setPath(prefix + QStringLiteral("/v8/finance/chart/") + encodedSymbol);
+    base.setPath(prefix + QStringLiteral("/v8/finance/chart/") + symbol);
 
     QUrlQuery query;
     query.addQueryItem(QStringLiteral("interval"), interval);
