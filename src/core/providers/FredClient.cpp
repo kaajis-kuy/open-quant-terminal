@@ -2,6 +2,7 @@
 
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QDateTime>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QTimer>
@@ -18,6 +19,31 @@ constexpr int kMaxRetryDelaySeconds = 30;
 
 int retryDelaySeconds(int retryCount) {
     return std::min(1 << std::min(retryCount, 4), kMaxRetryDelaySeconds);
+}
+
+int parseRetryAfterSeconds(const QByteArray& headerValue) {
+    if (headerValue.trimmed().isEmpty()) {
+        return -1;
+    }
+
+    bool numeric = false;
+    const qlonglong deltaSeconds = headerValue.trimmed().toLongLong(&numeric);
+    if (numeric) {
+        if (deltaSeconds < 0) {
+            return -1;
+        }
+        return static_cast<int>(std::min<qlonglong>(deltaSeconds, kMaxRetryDelaySeconds));
+    }
+
+    const QDateTime retryAt = QDateTime::fromString(
+        QString::fromLatin1(headerValue), Qt::RFC2822Date);
+    if (!retryAt.isValid()) {
+        return -1;
+    }
+
+    const qint64 seconds = QDateTime::currentDateTimeUtc().secsTo(retryAt.toUTC());
+    return static_cast<int>(std::clamp<qint64>(
+        seconds, 0, kMaxRetryDelaySeconds));
 }
 
 } // namespace
@@ -104,17 +130,20 @@ void FredClient::requestCurrentPage() {
                       QStringLiteral("OpenQuantTerminal/0.1"));
     request.setRawHeader("Accept", "application/json");
     request.setTransferTimeout(kTransferTimeoutMs);
-    m_reply = m_manager->get(request);
+    QPointer<QNetworkReply> reply = m_manager->get(request);
+    m_reply = reply;
 
-    connect(m_reply, &QNetworkReply::finished, this, [this, reply = m_reply.data()] {
+    connect(reply, &QNetworkReply::finished, this, [this, reply] {
         if (reply) {
-            handleReply(reply);
+            handleReply(reply.data());
         }
     });
 }
 
 void FredClient::handleReply(QNetworkReply* reply) {
-    if (!reply || !m_busy) {
+    // A cancelled request may finish after a newer request has started.
+    // Only the currently-owned reply is allowed to mutate client state.
+    if (!reply || !m_busy || reply != m_reply.data()) {
         if (reply) {
             reply->deleteLater();
         }
@@ -126,7 +155,7 @@ void FredClient::handleReply(QNetworkReply* reply) {
     const QByteArray payload = reply->readAll();
     const auto networkError = reply->error();
     const QString networkErrorText = reply->errorString();
-    const int retryAfter = reply->rawHeader("Retry-After").toInt();
+    const int retryAfter = parseRetryAfterSeconds(reply->rawHeader("Retry-After"));
     reply->deleteLater();
 
     // Retry only explicitly transient HTTP statuses, or transport failures
@@ -216,7 +245,7 @@ void FredClient::retryOrFinish(const QString& reason, int httpStatus,
         return;
     }
 
-    const int delay = retryAfterSeconds > 0
+    const int delay = retryAfterSeconds >= 0
         ? std::min(retryAfterSeconds, kMaxRetryDelaySeconds)
         : retryDelaySeconds(m_retryCount);
     ++m_retryCount;
