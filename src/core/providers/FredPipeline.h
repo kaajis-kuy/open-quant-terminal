@@ -42,5 +42,3 @@ private:
 };
 
 } // namespace oqt::providers
-
-Q_DECLARE_METATYPE(oqt::providers::AdapterResult)
