@@ -2,6 +2,7 @@
 
 #include <QtTest>
 
+#include <QElapsedTimer>
 #include <QFile>
 #include <QTemporaryDir>
 #include <QSqlDatabase>
@@ -517,6 +518,130 @@ private slots:
             QCOMPARE(loaded->bars.at(1).close, original.bars.at(1).close);
             QVERIFY(loaded->validate().isEmpty());
         }
+    }
+
+
+    void usesCompositePrimaryKeyForLargeBoundedRangeReads() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString databasePath = directory.filePath(QStringLiteral("query-performance.sqlite"));
+        constexpr qsizetype barCount = 5000;
+
+        CanonicalMarketSeries large;
+        large.providerId = QStringLiteral("yahoo_finance");
+        large.instrumentId = QStringLiteral("equity.large");
+        large.providerSymbol = QStringLiteral("LARGE");
+        large.interval = QStringLiteral("1m");
+        large.currency = QStringLiteral("USD");
+        large.provenance.retrievedAt = QDateTime::fromString(
+            QStringLiteral("2026-11-28T00:00:00.000Z"), Qt::ISODateWithMs);
+        large.quality.status = DataStatus::Ok;
+        large.bars.reserve(barCount);
+
+        const QDateTime firstTimestamp = QDateTime::fromString(
+            QStringLiteral("2026-11-01T00:00:00.000Z"), Qt::ISODateWithMs);
+        for (qsizetype i = 0; i < barCount; ++i) {
+            CanonicalMarketBar bar;
+            bar.timestamp = firstTimestamp.addSecs(i * 60);
+            bar.open = 100.0 + static_cast<double>(i) * 0.01;
+            bar.high = bar.open + 1.0;
+            bar.low = bar.open - 1.0;
+            bar.close = bar.open + 0.5;
+            bar.volume = static_cast<double>(i + 1);
+            large.bars.append(bar);
+        }
+        QVERIFY(large.validate().isEmpty());
+
+        {
+            SqliteMarketDataStore store(databasePath);
+            QString error;
+            QVERIFY2(store.open(&error), qPrintable(error));
+            QVERIFY2(store.saveSeries(large, &error), qPrintable(error));
+
+            // Similar keys must remain isolated by the full composite key.
+            CanonicalMarketSeries otherInstrument = sampleSeries();
+            otherInstrument.instrumentId = QStringLiteral("equity.other");
+            otherInstrument.providerSymbol = QStringLiteral("OTHER");
+            QVERIFY2(store.saveSeries(otherInstrument, &error), qPrintable(error));
+
+            CanonicalMarketSeries otherInterval = sampleSeries();
+            otherInterval.interval = QStringLiteral("1h");
+            QVERIFY2(store.saveSeries(otherInterval, &error), qPrintable(error));
+
+            const QDateTime rangeStart = firstTimestamp.addSecs(1000 * 60);
+            const QDateTime rangeEnd = firstTimestamp.addSecs(2500 * 60);
+            QElapsedTimer timer;
+            timer.start();
+            const auto bounded = store.loadSeriesRange(
+                large.providerId, large.instrumentId, large.interval,
+                rangeStart, rangeEnd, &error, 1000);
+            const qint64 elapsedMs = timer.elapsed();
+
+            QVERIFY2(bounded.has_value(), qPrintable(error));
+            QCOMPARE(bounded->bars.size(), qsizetype(1000));
+            QCOMPARE(bounded->bars.first().timestamp, rangeStart);
+            QCOMPARE(bounded->bars.last().timestamp, firstTimestamp.addSecs(1999 * 60));
+            QVERIFY(bounded->quality.isTruncated);
+            QVERIFY(bounded->validate().isEmpty());
+
+            qInfo().noquote() << QStringLiteral(
+                "SQLite bounded range benchmark: %1 source bars, 1000 returned, %2 ms")
+                .arg(barCount).arg(elapsedMs);
+
+            const auto isolatedInstrument = store.loadSeriesRange(
+                otherInstrument.providerId, otherInstrument.instrumentId,
+                otherInstrument.interval, otherInstrument.bars.first().timestamp,
+                otherInstrument.bars.last().timestamp.addMSecs(1), &error);
+            QVERIFY2(isolatedInstrument.has_value(), qPrintable(error));
+            QCOMPARE(isolatedInstrument->bars.size(), otherInstrument.bars.size());
+
+            const auto isolatedInterval = store.loadSeriesRange(
+                otherInterval.providerId, otherInterval.instrumentId,
+                otherInterval.interval, otherInterval.bars.first().timestamp,
+                otherInterval.bars.last().timestamp.addMSecs(1), &error);
+            QVERIFY2(isolatedInterval.has_value(), qPrintable(error));
+            QCOMPARE(isolatedInterval->bars.size(), otherInterval.bars.size());
+        }
+
+        const QString connectionName = QStringLiteral("query-plan-check");
+        {
+            QSqlDatabase database = QSqlDatabase::addDatabase(
+                QStringLiteral("QSQLITE"), connectionName);
+            database.setDatabaseName(databasePath);
+            QVERIFY(database.open());
+
+            QSqlQuery plan(database);
+            QVERIFY2(plan.prepare(QStringLiteral(
+                "EXPLAIN QUERY PLAN SELECT timestamp_ms FROM market_bars "
+                "WHERE provider_id=? AND instrument_id=? AND interval=? "
+                "AND timestamp_ms>=? AND timestamp_ms<? ORDER BY timestamp_ms ASC")),
+                qPrintable(plan.lastError().text()));
+            plan.addBindValue(large.providerId);
+            plan.addBindValue(large.instrumentId);
+            plan.addBindValue(large.interval);
+            plan.addBindValue(firstTimestamp.addSecs(1000 * 60).toMSecsSinceEpoch());
+            plan.addBindValue(firstTimestamp.addSecs(2500 * 60).toMSecsSinceEpoch());
+            QVERIFY2(plan.exec(), qPrintable(plan.lastError().text()));
+
+            QStringList planDetails;
+            while (plan.next()) planDetails.append(plan.value(3).toString());
+            QVERIFY(!planDetails.isEmpty());
+            const QString planText = planDetails.join(QLatin1Char(' ')).toLower();
+            QVERIFY2(planText.contains(QStringLiteral("market_bars")),
+                     qPrintable(planText));
+            QVERIFY2(planText.contains(QStringLiteral("timestamp_ms")),
+                     qPrintable(planText));
+            QVERIFY2(planText.contains(QStringLiteral("primary key"))
+                         || planText.contains(QStringLiteral("autoindex")),
+                     qPrintable(planText));
+
+            QSqlQuery integrity(database);
+            QVERIFY(integrity.exec(QStringLiteral("PRAGMA integrity_check")));
+            QVERIFY(integrity.next());
+            QCOMPARE(integrity.value(0).toString(), QStringLiteral("ok"));
+            database.close();
+        }
+        QSqlDatabase::removeDatabase(connectionName);
     }
 
     void rejectsInvalidSeriesWithoutWriting() {
