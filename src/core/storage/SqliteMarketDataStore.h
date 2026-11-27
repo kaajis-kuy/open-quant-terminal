@@ -21,6 +21,8 @@ public:
 
     [[nodiscard]] bool open(QString* errorMessage = nullptr);
     [[nodiscard]] bool isOpen() const;
+    // Checks SQLite page integrity and declared foreign-key relationships.
+    [[nodiscard]] bool verifyIntegrity(QString* errorMessage = nullptr) const;
     [[nodiscard]] bool saveSeries(const oqt::data::CanonicalMarketSeries& series,
                                   QString* errorMessage = nullptr);
     [[nodiscard]] std::optional<oqt::data::CanonicalMarketSeries> loadSeries(
