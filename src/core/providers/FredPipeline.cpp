@@ -7,7 +7,9 @@ namespace oqt::providers {
 
 FredPipeline::FredPipeline(FredClient* client, QObject* parent)
     : QObject(parent),
-      m_client(client ? client : new FredClient(nullptr, this)) {
+      m_client(client ? client : new FredClient(nullptr, this)),
+      m_normalizer(m_registry) {
+    m_registry.registerAdapter(std::make_shared<FredAdapter>());
     qRegisterMetaType<oqt::providers::AdapterResult>();
     connect(m_client, &FredClient::finished, this,
             &FredPipeline::handleClientFinished);
