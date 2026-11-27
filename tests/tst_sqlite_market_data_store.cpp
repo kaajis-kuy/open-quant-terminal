@@ -134,6 +134,48 @@ private slots:
         QVERIFY(secondDay->validate().isEmpty());
     }
 
+    void limitsOhlcvRangeResultsInAscendingOrder() {
+        SqliteMarketDataStore store(QStringLiteral(":memory:"));
+        QString error;
+        QVERIFY2(store.open(&error), qPrintable(error));
+        const CanonicalMarketSeries source = sampleSeries();
+        QVERIFY2(store.saveSeries(source, &error), qPrintable(error));
+
+        const QDateTime start = source.bars.first().timestamp;
+        const QDateTime end = source.bars.last().timestamp.addMSecs(1);
+
+        const auto limited = store.loadSeriesRange(
+            source.providerId, source.instrumentId, source.interval,
+            start, end, &error, 1);
+        QVERIFY2(limited.has_value(), qPrintable(error));
+        QCOMPARE(limited->bars.size(), qsizetype(1));
+        QCOMPARE(limited->bars.first().timestamp, source.bars.first().timestamp);
+        QCOMPARE(limited->bars.first().close, source.bars.first().close);
+        QVERIFY(limited->validate().isEmpty());
+
+        const auto unlimited = store.loadSeriesRange(
+            source.providerId, source.instrumentId, source.interval,
+            start, end, &error);
+        QVERIFY2(unlimited.has_value(), qPrintable(error));
+        QCOMPARE(unlimited->bars.size(), source.bars.size());
+    }
+
+    void rejectsNegativeOhlcvRangeLimit() {
+        SqliteMarketDataStore store(QStringLiteral(":memory:"));
+        QString error;
+        QVERIFY2(store.open(&error), qPrintable(error));
+        const QDateTime start = QDateTime::fromString(
+            QStringLiteral("2026-11-26T00:00:00.000Z"), Qt::ISODateWithMs);
+        const QDateTime end = QDateTime::fromString(
+            QStringLiteral("2026-11-28T00:00:00.000Z"), Qt::ISODateWithMs);
+
+        const auto result = store.loadSeriesRange(
+            QStringLiteral("yahoo_finance"), QStringLiteral("equity.aapl"),
+            QStringLiteral("1d"), start, end, &error, -1);
+        QVERIFY(!result.has_value());
+        QVERIFY(error.contains(QStringLiteral("maxBars cannot be negative")));
+    }
+
     void returnsValidEmptySeriesForRangeWithoutBars() {
         SqliteMarketDataStore store(QStringLiteral(":memory:"));
         QString error;
