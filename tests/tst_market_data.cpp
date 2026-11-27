@@ -2,6 +2,8 @@
 
 #include <QtTest>
 
+#include <limits>
+
 using namespace oqt::data;
 
 namespace {
