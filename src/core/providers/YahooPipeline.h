@@ -2,6 +2,9 @@
 
 #include "core/providers/YahooClient.h"
 #include "core/providers/YahooFinanceAdapter.h"
+#include "core/services/ProviderNormalizationService.h"
+
+#include <memory>
 
 #include <QObject>
 #include <QPointer>
