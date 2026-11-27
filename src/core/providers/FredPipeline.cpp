@@ -91,6 +91,12 @@ void FredPipeline::handleClientFinished(const QString& requestId,
     }
 
     AdapterResult result = m_adapter.normalize(response, m_context);
+    // fetchedAt/retrievedAt describe completed retrieval, not request start.
+    const QDateTime retrievedAt = QDateTime::currentDateTimeUtc();
+    result.rawResult.fetchedAt = retrievedAt;
+    if (result.dataset.has_value()) {
+        result.dataset->provenance.retrievedAt = retrievedAt;
+    }
     m_busy = false;
     m_context = {};
     emit finished(requestId, result);
