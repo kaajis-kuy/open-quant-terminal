@@ -70,6 +70,38 @@ bool SqliteMarketDataStore::open(QString* errorMessage) {
         return false;
     }
 
+    // Keep SQLite contention bounded and allow persistent databases to serve
+    // readers while a writer commits new market data.
+    QSqlQuery busyTimeout(m_database);
+    if (!busyTimeout.exec(QStringLiteral("PRAGMA busy_timeout = 5000"))) {
+        setError(errorMessage, sqlError(busyTimeout));
+        m_database.close();
+        m_database = QSqlDatabase();
+        QSqlDatabase::removeDatabase(m_connectionName);
+        return false;
+    }
+    busyTimeout.finish();
+
+    // SQLite cannot use WAL for an in-memory database; its native memory
+    // journal is already appropriate for isolated unit tests.
+    if (m_databasePath != QStringLiteral(":memory:")) {
+        QSqlQuery journalMode(m_database);
+        if (!journalMode.exec(QStringLiteral("PRAGMA journal_mode = WAL"))
+            || !journalMode.next()
+            || journalMode.value(0).toString().compare(QStringLiteral("wal"),
+                                                        Qt::CaseInsensitive) != 0) {
+            const QString message = journalMode.lastError().isValid()
+                ? sqlError(journalMode)
+                : QStringLiteral("SQLite could not enable WAL journal mode");
+            setError(errorMessage, message);
+            m_database.close();
+            m_database = QSqlDatabase();
+            QSqlDatabase::removeDatabase(m_connectionName);
+            return false;
+        }
+        journalMode.finish();
+    }
+
     if (!initializeSchema(errorMessage)) {
         m_database.close();
         m_database = QSqlDatabase();
