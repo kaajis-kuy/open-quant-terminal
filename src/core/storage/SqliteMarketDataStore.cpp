@@ -248,7 +248,8 @@ std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSerie
     series.quality.isPartial = header.value(6).toBool();
     series.quality.isTruncated = header.value(7).toBool();
     const QJsonDocument missingDoc = QJsonDocument::fromJson(header.value(8).toString().toUtf8());
-    for (auto it = missingDoc.object().begin(); it != missingDoc.object().end(); ++it) {
+    const QJsonObject missingCounts = missingDoc.object();
+    for (auto it = missingCounts.begin(); it != missingCounts.end(); ++it) {
         series.quality.missingValueCounts.insert(it.key(), static_cast<qsizetype>(it.value().toDouble()));
     }
     const QJsonDocument warningsDoc = QJsonDocument::fromJson(header.value(9).toString().toUtf8());
