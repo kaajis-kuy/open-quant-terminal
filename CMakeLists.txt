@@ -145,6 +145,8 @@ if(OQT_BUILD_TESTS)
         src/core/providers/ProviderResponse.h
         src/core/data/CanonicalData.cpp
         src/core/data/CanonicalData.h
+        src/core/data/MarketData.cpp
+        src/core/data/MarketData.h
     )
 
     target_link_libraries(tst_provider_adapter
@@ -170,6 +172,8 @@ if(OQT_BUILD_TESTS)
         src/core/providers/ProviderResponse.h
         src/core/data/CanonicalData.cpp
         src/core/data/CanonicalData.h
+        src/core/data/MarketData.cpp
+        src/core/data/MarketData.h
     )
 
     target_link_libraries(tst_fred_adapter
@@ -269,6 +273,8 @@ if(OQT_BUILD_TESTS)
         src/core/providers/ProviderAdapter.h
         src/core/data/CanonicalData.cpp
         src/core/data/CanonicalData.h
+        src/core/data/MarketData.cpp
+        src/core/data/MarketData.h
     )
 
     target_link_libraries(tst_fred_pipeline
