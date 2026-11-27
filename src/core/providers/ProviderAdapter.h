@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/data/CanonicalData.h"
+#include "core/data/MarketData.h"
 #include "core/providers/ProviderResponse.h"
 
 #include <QDateTime>
@@ -26,6 +27,7 @@ struct ProviderRequestContext {
 struct AdapterResult {
     ResponseStatus responseStatus = ResponseStatus::Failed;
     std::optional<oqt::data::CanonicalDataset> dataset;
+    std::optional<oqt::data::CanonicalMarketSeries> marketSeries;
     oqt::data::ProviderRawResult rawResult;
     QStringList errors;
 
