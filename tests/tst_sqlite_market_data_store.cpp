@@ -2,6 +2,9 @@
 
 #include <QtTest>
 
+#include <QFile>
+#include <QTemporaryDir>
+
 using namespace oqt::data;
 using oqt::storage::SqliteMarketDataStore;
 
@@ -131,6 +134,65 @@ private slots:
         QVERIFY2(loaded.has_value(), qPrintable(error));
         QVERIFY(loaded->bars.isEmpty());
         QCOMPARE(loaded->quality.status, DataStatus::Empty);
+    }
+
+
+    void persistsAcrossStoreInstances() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString databasePath = directory.filePath(QStringLiteral("market-data.sqlite"));
+        const CanonicalMarketSeries source = sampleSeries();
+
+        {
+            SqliteMarketDataStore writer(databasePath);
+            QString error;
+            QVERIFY2(writer.open(&error), qPrintable(error));
+            QVERIFY2(writer.saveSeries(source, &error), qPrintable(error));
+        }
+
+        {
+            SqliteMarketDataStore reader(databasePath);
+            QString error;
+            QVERIFY2(reader.open(&error), qPrintable(error));
+            const auto loaded = reader.loadSeries(source.providerId, source.instrumentId,
+                                                  source.interval, &error);
+            QVERIFY2(loaded.has_value(), qPrintable(error));
+            QCOMPARE(loaded->bars.size(), source.bars.size());
+            QCOMPARE(loaded->bars.at(0).timestamp, source.bars.at(0).timestamp);
+            QCOMPARE(loaded->bars.at(0).close, source.bars.at(0).close);
+            QCOMPARE(loaded->bars.at(0).adjustedClose, source.bars.at(0).adjustedClose);
+            QCOMPARE(loaded->bars.at(1).volume, source.bars.at(1).volume);
+            QCOMPARE(loaded->provenance.sourceUrl, source.provenance.sourceUrl);
+            QCOMPARE(loaded->provenance.attributionId, source.provenance.attributionId);
+            QCOMPARE(loaded->provenance.retrievedAt, source.provenance.retrievedAt);
+            QCOMPARE(loaded->quality.status, source.quality.status);
+            QCOMPARE(loaded->quality.missingValueCounts, source.quality.missingValueCounts);
+            QCOMPARE(loaded->quality.warnings, source.quality.warnings);
+            QCOMPARE(loaded->quality.nextPageCursor, source.quality.nextPageCursor);
+            QVERIFY(loaded->validate().isEmpty());
+        }
+    }
+
+    void recoversAfterSchemaInitializationFailure() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString databasePath = directory.filePath(QStringLiteral("corrupt.sqlite"));
+        {
+            QFile corruptFile(databasePath);
+            QVERIFY(corruptFile.open(QIODevice::WriteOnly));
+            QVERIFY(corruptFile.write("not a sqlite database") > 0);
+        }
+
+        SqliteMarketDataStore store(databasePath);
+        QString error;
+        QVERIFY(!store.open(&error));
+        QVERIFY(!store.isOpen());
+        QVERIFY(!error.isEmpty());
+
+        QVERIFY(QFile::remove(databasePath));
+        error.clear();
+        QVERIFY2(store.open(&error), qPrintable(error));
+        QVERIFY(store.isOpen());
     }
 
     void rejectsInvalidSeriesWithoutWriting() {
