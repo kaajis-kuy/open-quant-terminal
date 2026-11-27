@@ -46,7 +46,7 @@ private slots:
         QVERIFY(result.isValid());
         QCOMPARE(result.url.scheme(), QStringLiteral("http"));
         QCOMPARE(result.url.host(), QStringLiteral("127.0.0.1"));
-        QCOMPARE(result.url.path(), QStringLiteral("/mock/v8/finance/chart/%5EGSPC"));
+        QCOMPARE(result.url.path(), QStringLiteral("/mock/v8/finance/chart/^GSPC"));
     }
 
     void omitsOptionalEventsAndAdjustedClose() {
