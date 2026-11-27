@@ -38,7 +38,8 @@ private:
                               const QString& errorMessage);
 
     QPointer<YahooClient> m_client;
-    YahooFinanceAdapter m_adapter;
+    ProviderAdapterRegistry m_registry;
+    oqt::services::ProviderNormalizationService m_normalizer;
     ProviderRequestContext m_context;
     bool m_busy = false;
 };
