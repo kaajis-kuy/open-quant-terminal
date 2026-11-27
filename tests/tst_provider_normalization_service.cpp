@@ -2,6 +2,7 @@
 
 #include "core/providers/FredAdapter.h"
 
+#include <QJsonArray>
 #include <QtTest>
 
 using namespace oqt::providers;
