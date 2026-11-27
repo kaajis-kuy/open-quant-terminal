@@ -92,7 +92,7 @@ void FredPipeline::handleClientFinished(const QString& requestId,
                                              : ResponseStatus::Failed;
     }
 
-    AdapterResult result = m_adapter.normalize(response, m_context);
+    AdapterResult result = m_normalizer.normalize(response, m_context);
     // fetchedAt/retrievedAt describe completed retrieval, not request start.
     const QDateTime retrievedAt = QDateTime::currentDateTimeUtc();
     result.rawResult.fetchedAt = retrievedAt;
