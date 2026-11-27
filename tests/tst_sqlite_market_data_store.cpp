@@ -76,6 +76,51 @@ private slots:
         QVERIFY(error.isEmpty());
     }
 
+    void createsConsistentStandaloneBackup() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString databasePath = directory.filePath(QStringLiteral("source.sqlite"));
+        const QString backupPath = directory.filePath(QStringLiteral("backup.sqlite"));
+
+        SqliteMarketDataStore sourceStore(databasePath);
+        QString error;
+        QVERIFY2(sourceStore.open(&error), qPrintable(error));
+        const CanonicalMarketSeries source = sampleSeries();
+        QVERIFY2(sourceStore.saveSeries(source, &error), qPrintable(error));
+
+        QVERIFY2(sourceStore.backupTo(backupPath, &error), qPrintable(error));
+        QVERIFY(QFile::exists(backupPath));
+
+        error.clear();
+        QVERIFY(!sourceStore.backupTo(databasePath, &error));
+        QVERIFY(error.contains(QStringLiteral("must differ")));
+        error.clear();
+        QVERIFY(!sourceStore.backupTo(backupPath, &error));
+        QVERIFY(error.contains(QStringLiteral("already exists")));
+
+        SqliteMarketDataStore backupStore(backupPath);
+        error.clear();
+        QVERIFY2(backupStore.open(&error), qPrintable(error));
+        QVERIFY2(backupStore.verifyIntegrity(&error), qPrintable(error));
+        const auto restored = backupStore.loadSeries(source.providerId, source.instrumentId,
+                                                     source.interval, &error);
+        QVERIFY2(restored.has_value(), qPrintable(error));
+        QCOMPARE(restored->bars.size(), source.bars.size());
+        QCOMPARE(restored->bars.first().timestamp, source.bars.first().timestamp);
+        QCOMPARE(restored->bars.last().close, source.bars.last().close);
+        QCOMPARE(restored->provenance.attributionId, source.provenance.attributionId);
+        QVERIFY(restored->validate().isEmpty());
+    }
+
+    void rejectsBackupWhenDatabaseIsClosed() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        SqliteMarketDataStore store(directory.filePath(QStringLiteral("closed.sqlite")));
+        QString error;
+        QVERIFY(!store.backupTo(directory.filePath(QStringLiteral("backup.sqlite")), &error));
+        QVERIFY(error.contains(QStringLiteral("not open")));
+    }
+
     void detectsForeignKeyViolationsDuringIntegrityVerification() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
