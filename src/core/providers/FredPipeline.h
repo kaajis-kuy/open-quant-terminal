@@ -2,6 +2,9 @@
 
 #include "core/providers/FredAdapter.h"
 #include "core/providers/FredClient.h"
+#include "core/services/ProviderNormalizationService.h"
+
+#include <memory>
 
 #include <QObject>
 
