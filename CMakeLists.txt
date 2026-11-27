@@ -14,7 +14,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 6.8 REQUIRED COMPONENTS Widgets Network)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Widgets Network Sql)
 
 qt_standard_project_setup()
 
@@ -26,6 +26,8 @@ add_executable(open-quant-terminal
     src/core/data/CanonicalData.h
     src/core/data/MarketData.cpp
     src/core/data/MarketData.h
+    src/core/storage/SqliteMarketDataStore.cpp
+    src/core/storage/SqliteMarketDataStore.h
     src/core/providers/ProviderResponse.cpp
     src/core/providers/ProviderResponse.h
     src/core/providers/ProviderAdapter.cpp
@@ -52,6 +54,7 @@ target_link_libraries(open-quant-terminal
     PRIVATE
         Qt6::Widgets
         Qt6::Network
+        Qt6::Sql
 )
 
 target_include_directories(open-quant-terminal
@@ -123,6 +126,30 @@ if(OQT_BUILD_TESTS)
     )
 
     add_test(NAME tst_market_data COMMAND tst_market_data)
+
+    add_executable(tst_sqlite_market_data_store
+        tests/tst_sqlite_market_data_store.cpp
+        src/core/storage/SqliteMarketDataStore.cpp
+        src/core/storage/SqliteMarketDataStore.h
+        src/core/data/MarketData.cpp
+        src/core/data/MarketData.h
+        src/core/data/CanonicalData.cpp
+        src/core/data/CanonicalData.h
+    )
+
+    target_link_libraries(tst_sqlite_market_data_store
+        PRIVATE
+            Qt6::Test
+            Qt6::Core
+            Qt6::Sql
+    )
+
+    target_include_directories(tst_sqlite_market_data_store
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    add_test(NAME tst_sqlite_market_data_store COMMAND tst_sqlite_market_data_store)
 
     add_executable(tst_provider_response
         tests/tst_provider_response.cpp
