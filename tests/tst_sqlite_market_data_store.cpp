@@ -7,6 +7,7 @@
 #include <QSqlDatabase>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QTimeZone>
 
 using namespace oqt::data;
 using oqt::storage::SqliteMarketDataStore;
@@ -163,7 +164,7 @@ private slots:
             QStringLiteral("2026-11-26T00:00:00.000Z"), Qt::ISODateWithMs);
         const QDateTime end = QDateTime::fromString(
             QStringLiteral("2026-11-28T00:00:00.000Z"), Qt::ISODateWithMs);
-        const QDateTime localTime(QDate(2026, 11, 26), QTime(0, 0), Qt::LocalTime);
+        const QDateTime localTime(QDate(2026, 11, 26), QTime(0, 0), QTimeZone::systemTimeZone());
 
         QVERIFY(!store.loadSeriesRange(QStringLiteral("yahoo_finance"),
                                        QStringLiteral("equity.aapl"), QStringLiteral("1d"),
