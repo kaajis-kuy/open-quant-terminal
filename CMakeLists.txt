@@ -34,6 +34,8 @@ add_executable(open-quant-terminal
     src/core/providers/FredRequestBuilder.h
     src/core/providers/FredClient.cpp
     src/core/providers/FredClient.h
+    src/core/providers/FredPipeline.cpp
+    src/core/providers/FredPipeline.h
 )
 
 target_link_libraries(open-quant-terminal
@@ -198,6 +200,38 @@ if(OQT_BUILD_TESTS)
     )
 
     add_test(NAME tst_fred_client COMMAND tst_fred_client)
+
+    add_executable(tst_fred_pipeline
+        tests/tst_fred_pipeline.cpp
+        src/core/providers/FredPipeline.cpp
+        src/core/providers/FredPipeline.h
+        src/core/providers/FredClient.cpp
+        src/core/providers/FredClient.h
+        src/core/providers/FredRequestBuilder.cpp
+        src/core/providers/FredRequestBuilder.h
+        src/core/providers/FredAdapter.cpp
+        src/core/providers/FredAdapter.h
+        src/core/providers/ProviderResponse.cpp
+        src/core/providers/ProviderResponse.h
+        src/core/providers/ProviderAdapter.cpp
+        src/core/providers/ProviderAdapter.h
+        src/core/data/CanonicalData.cpp
+        src/core/data/CanonicalData.h
+    )
+
+    target_link_libraries(tst_fred_pipeline
+        PRIVATE
+            Qt6::Test
+            Qt6::Core
+            Qt6::Network
+    )
+
+    target_include_directories(tst_fred_pipeline
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    add_test(NAME tst_fred_pipeline COMMAND tst_fred_pipeline)
     set_tests_properties(tst_main_window PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     )
