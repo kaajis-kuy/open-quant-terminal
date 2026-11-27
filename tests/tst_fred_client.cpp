@@ -50,7 +50,7 @@ public:
                             + QByteArray::number(reply.status) + " "
                             + (reply.status == 200 ? "OK" : "Mock Error")
                             + "\r\nContent-Type: application/json\r\nConnection: close\r\n";
-                        if (reply.retryAfter >= 0) {
+                        if (!reply.retryAfter.isEmpty()) {
                             response += "Retry-After: " + reply.retryAfter + "\r\n";
                         }
                         response += "Content-Length: " + QByteArray::number(reply.body.size())
