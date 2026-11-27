@@ -5,6 +5,7 @@
 #include "core/providers/ProviderResponse.h"
 
 #include <QDateTime>
+#include <QMetaType>
 #include <QHash>
 #include <QJsonObject>
 #include <QStringList>
@@ -61,3 +62,5 @@ private:
 };
 
 } // namespace oqt::providers
+
+Q_DECLARE_METATYPE(oqt::providers::AdapterResult)
