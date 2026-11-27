@@ -317,6 +317,70 @@ private slots:
         QVERIFY(error.contains(QStringLiteral("newer than supported")));
     }
 
+    void preservesPreviousSeriesWhenReplacementFailsMidTransaction() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString databasePath = directory.filePath(QStringLiteral("atomic-recovery.sqlite"));
+        const CanonicalMarketSeries original = sampleSeries();
+
+        {
+            SqliteMarketDataStore store(databasePath);
+            QString error;
+            QVERIFY2(store.open(&error), qPrintable(error));
+            QVERIFY2(store.saveSeries(original, &error), qPrintable(error));
+        }
+
+        // Inject a deterministic SQLite failure after the replacement header has
+        // been updated and old bars deleted, but before the new bar is inserted.
+        const QString triggerConnection = QStringLiteral("atomic-recovery-trigger");
+        {
+            QSqlDatabase database = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),
+                                                               triggerConnection);
+            database.setDatabaseName(databasePath);
+            QVERIFY(database.open());
+            QSqlQuery query(database);
+            const qint64 failingTimestamp = QDateTime::fromString(
+                QStringLiteral("2026-11-28T00:00:00.000Z"), Qt::ISODateWithMs)
+                                                .toMSecsSinceEpoch();
+            const QString triggerSql = QStringLiteral(
+                "CREATE TRIGGER reject_replacement_bar BEFORE INSERT ON market_bars "
+                "WHEN NEW.timestamp_ms = %1 "
+                "BEGIN SELECT RAISE(ABORT, 'forced insert failure'); END")
+                                           .arg(failingTimestamp);
+            QVERIFY2(query.exec(triggerSql), qPrintable(query.lastError().text()));
+            database.close();
+        }
+        QSqlDatabase::removeDatabase(triggerConnection);
+
+        {
+            SqliteMarketDataStore store(databasePath);
+            QString error;
+            QVERIFY2(store.open(&error), qPrintable(error));
+
+            CanonicalMarketSeries replacement = original;
+            replacement.providerSymbol = QStringLiteral("SHOULD_NOT_COMMIT");
+            replacement.bars.clear();
+            CanonicalMarketBar replacementBar = original.bars.last();
+            replacementBar.timestamp = QDateTime::fromString(
+                QStringLiteral("2026-11-28T00:00:00.000Z"), Qt::ISODateWithMs);
+            replacementBar.close = 999.0;
+            replacement.bars.append(replacementBar);
+
+            QVERIFY(!store.saveSeries(replacement, &error));
+            QVERIFY(error.contains(QStringLiteral("forced insert failure")));
+
+            error.clear();
+            const auto loaded = store.loadSeries(original.providerId, original.instrumentId,
+                                                 original.interval, &error);
+            QVERIFY2(loaded.has_value(), qPrintable(error));
+            QCOMPARE(loaded->providerSymbol, original.providerSymbol);
+            QCOMPARE(loaded->bars.size(), original.bars.size());
+            QCOMPARE(loaded->bars.at(0).close, original.bars.at(0).close);
+            QCOMPARE(loaded->bars.at(1).close, original.bars.at(1).close);
+            QVERIFY(loaded->validate().isEmpty());
+        }
+    }
+
     void rejectsInvalidSeriesWithoutWriting() {
         SqliteMarketDataStore store(QStringLiteral(":memory:"));
         QString error;
