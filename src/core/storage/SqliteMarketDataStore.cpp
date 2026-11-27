@@ -5,6 +5,7 @@
 #include <QJsonObject>
 #include <QSqlError>
 #include <QSqlQuery>
+#include <QTimeZone>
 #include <QUuid>
 
 namespace oqt::storage {
@@ -369,7 +370,7 @@ std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSerie
     }
     while (bars.next()) {
         oqt::data::CanonicalMarketBar bar;
-        bar.timestamp = QDateTime::fromMSecsSinceEpoch(bars.value(0).toLongLong(), Qt::UTC);
+        bar.timestamp = QDateTime::fromMSecsSinceEpoch(bars.value(0).toLongLong(), QTimeZone::UTC);
         bar.open = bars.value(1).toDouble();
         bar.high = bars.value(2).toDouble();
         bar.low = bars.value(3).toDouble();
