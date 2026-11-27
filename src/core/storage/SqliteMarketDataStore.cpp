@@ -176,13 +176,6 @@ bool SqliteMarketDataStore::saveSeries(
         setError(errorMessage, QStringLiteral("database is not open"));
         return false;
     }
-    // A valid query can return no candles even when the stored full series
-    // was non-empty. Represent the returned slice as an empty result.
-    if (series.bars.isEmpty()) {
-        series.quality.status = oqt::data::DataStatus::Empty;
-        series.quality.isPartial = false;
-    }
-
     const QStringList validationErrors = series.validate();
     if (!validationErrors.isEmpty()) {
         setError(errorMessage, validationErrors.join(QStringLiteral("; ")));
@@ -384,6 +377,13 @@ std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSerie
         if (!bars.isNull(5)) bar.adjustedClose = bars.value(5).toDouble();
         if (!bars.isNull(6)) bar.volume = bars.value(6).toDouble();
         series.bars.append(std::move(bar));
+    }
+
+    // A valid query can return no candles even when the stored full series
+    // was non-empty. Represent the returned slice as an empty result.
+    if (series.bars.isEmpty()) {
+        series.quality.status = oqt::data::DataStatus::Empty;
+        series.quality.isPartial = false;
     }
 
     const QStringList validationErrors = series.validate();
