@@ -114,6 +114,17 @@ private slots:
         QVERIFY(!result.rawResult.redactedRequestArguments.join(";")
                      .contains(QStringLiteral("pipeline-secret")));
         QVERIFY(result.rawResult.rawPayload.isObject());
+        QCOMPARE(result.rawResult.providerId, QStringLiteral("fred"));
+        QCOMPARE(result.rawResult.operationId, QStringLiteral("observations"));
+        QCOMPARE(result.rawResult.requestId, QStringLiteral("pipeline-001"));
+        QVERIFY(result.rawResult.fetchedAt.isValid());
+        QCOMPARE(result.rawResult.fetchedAt.timeSpec(), Qt::UTC);
+        QVERIFY(result.dataset->provenance.retrievedAt.isValid());
+        QCOMPARE(result.dataset->provenance.retrievedAt.timeSpec(), Qt::UTC);
+        QCOMPARE(result.dataset->provenance.retrievedAt, result.rawResult.fetchedAt);
+        QVERIFY(result.dataset->provenance.sourceUrl.startsWith(QStringLiteral("https://")));
+        QCOMPARE(result.dataset->provenance.attributionId, QStringLiteral("FRED"));
+        QVERIFY(result.rawResult.responseSchemaVersion == QStringLiteral("1.0"));
     }
 
     void preservesPartialResultWhenPageLimitIsReached() {
