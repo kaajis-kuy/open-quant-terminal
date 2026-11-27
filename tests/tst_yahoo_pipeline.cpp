@@ -129,6 +129,94 @@ private slots:
         QVERIFY(!result.isValid());
     }
 
+    void rejectsMalformedJsonResponse() {
+        YahooPipelineMockServer server;
+        QVERIFY(server.listen());
+        server.responseBody = QByteArrayLiteral("{not-json");
+
+        YahooClient client(nullptr, nullptr, server.endpoint());
+        YahooPipeline pipeline(&client);
+        QSignalSpy spy(&pipeline, &YahooPipeline::finished);
+
+        YahooChartRequest request;
+        request.symbol = QStringLiteral("AAPL");
+        QVERIFY(pipeline.fetchChart(request, QStringLiteral("equity.aapl"),
+                                    QStringLiteral("yahoo-invalid-json")));
+        QTRY_COMPARE_WITH_TIMEOUT(spy.size(), 1, 5000);
+
+        const AdapterResult result = qvariant_cast<AdapterResult>(spy.takeFirst().at(1));
+        QCOMPARE(result.responseStatus, ResponseStatus::Failed);
+        QVERIFY(!result.errors.isEmpty());
+        QVERIFY(!result.isValid());
+    }
+
+    void rejectsYahooChartApiErrorOnHttpSuccess() {
+        YahooPipelineMockServer server;
+        QVERIFY(server.listen());
+        server.responseBody = R"({"chart":{"result":null,"error":{"code":"Not Found","description":"No data found"}}})";
+
+        YahooClient client(nullptr, nullptr, server.endpoint());
+        YahooPipeline pipeline(&client);
+        QSignalSpy spy(&pipeline, &YahooPipeline::finished);
+
+        YahooChartRequest request;
+        request.symbol = QStringLiteral("AAPL");
+        QVERIFY(pipeline.fetchChart(request, QStringLiteral("equity.aapl"),
+                                    QStringLiteral("yahoo-chart-error")));
+        QTRY_COMPARE_WITH_TIMEOUT(spy.size(), 1, 5000);
+
+        const AdapterResult result = qvariant_cast<AdapterResult>(spy.takeFirst().at(1));
+        QCOMPARE(result.responseStatus, ResponseStatus::Failed);
+        QVERIFY(result.errors.join("; ").contains(QStringLiteral("No data found")));
+        QVERIFY(!result.isValid());
+    }
+
+    void preservesPartialSeriesFromMalformedCandles() {
+        YahooPipelineMockServer server;
+        QVERIFY(server.listen());
+        server.responseBody = R"({
+            "chart":{"result":[{
+                "meta":{"symbol":"AAPL","currency":"USD"},
+                "timestamp":[1704067200,1704153600],
+                "indicators":{"quote":[{
+                    "open":[100,null],"high":[105,null],
+                    "low":[99,null],"close":[104,null]
+                }]}
+            }],"error":null}
+        })";
+
+        YahooClient client(nullptr, nullptr, server.endpoint());
+        YahooPipeline pipeline(&client);
+        QSignalSpy spy(&pipeline, &YahooPipeline::finished);
+
+        YahooChartRequest request;
+        request.symbol = QStringLiteral("AAPL");
+        QVERIFY(pipeline.fetchChart(request, QStringLiteral("equity.aapl"),
+                                    QStringLiteral("yahoo-partial")));
+        QTRY_COMPARE_WITH_TIMEOUT(spy.size(), 1, 5000);
+
+        const AdapterResult result = qvariant_cast<AdapterResult>(spy.takeFirst().at(1));
+        QVERIFY2(result.errors.isEmpty(), qPrintable(result.errors.join("; ")));
+        QVERIFY(result.isValid());
+        QCOMPARE(result.responseStatus, ResponseStatus::Ok);
+        QVERIFY(result.marketSeries.has_value());
+        QCOMPARE(result.marketSeries->bars.size(), qsizetype(1));
+        QCOMPARE(result.marketSeries->quality.status, oqt::data::DataStatus::Partial);
+        QVERIFY(result.marketSeries->quality.isPartial);
+    }
+
+    void handlesExternalClientDestructionSafely() {
+        auto* client = new YahooClient;
+        YahooPipeline pipeline(client);
+        delete client;
+
+        YahooChartRequest request;
+        request.symbol = QStringLiteral("AAPL");
+        QVERIFY(!pipeline.fetchChart(request, QStringLiteral("equity.aapl"),
+                                     QStringLiteral("yahoo-destroyed-client")));
+        QVERIFY(!pipeline.isBusy());
+    }
+
     void rejectsInvalidRequestsBeforeStarting() {
         YahooClient client;
         YahooPipeline pipeline(&client);
