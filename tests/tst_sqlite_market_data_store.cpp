@@ -151,7 +151,18 @@ private slots:
         QCOMPARE(limited->bars.size(), qsizetype(1));
         QCOMPARE(limited->bars.first().timestamp, source.bars.first().timestamp);
         QCOMPARE(limited->bars.first().close, source.bars.first().close);
+        QCOMPARE(limited->quality.status, DataStatus::Partial);
+        QVERIFY(limited->quality.isPartial);
+        QVERIFY(limited->quality.isTruncated);
+        QVERIFY(limited->quality.warnings.last().contains(QStringLiteral("maxBars=1")));
         QVERIFY(limited->validate().isEmpty());
+
+        const auto exactLimit = store.loadSeriesRange(
+            source.providerId, source.instrumentId, source.interval,
+            start, end, &error, source.bars.size());
+        QVERIFY2(exactLimit.has_value(), qPrintable(error));
+        QCOMPARE(exactLimit->bars.size(), source.bars.size());
+        QVERIFY(!exactLimit->quality.isTruncated);
 
         const auto unlimited = store.loadSeriesRange(
             source.providerId, source.instrumentId, source.interval,
