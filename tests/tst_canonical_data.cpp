@@ -2,6 +2,10 @@
 
 #include <QtTest>
 
+#include <QJsonArray>
+#include <QJsonObject>
+#include <limits>
+
 using namespace oqt::data;
 
 class CanonicalDataTest final : public QObject {
