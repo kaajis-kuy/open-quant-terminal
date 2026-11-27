@@ -277,25 +277,43 @@ bool SqliteMarketDataStore::saveSeries(
         return false;
     }
 
-    QSqlQuery insertBar(m_database);
-    insertBar.prepare(QStringLiteral(
-        "INSERT INTO market_bars (provider_id,instrument_id,interval,timestamp_ms,"
-        "open,high,low,close,adjusted_close,volume) VALUES (?,?,?,?,?,?,?,?,?,?)"));
-    for (const auto& bar : series.bars) {
-        insertBar.bindValue(0, series.providerId);
-        insertBar.bindValue(1, series.instrumentId);
-        insertBar.bindValue(2, series.interval);
-        insertBar.bindValue(3, bar.timestamp.toUTC().toMSecsSinceEpoch());
-        insertBar.bindValue(4, bar.open);
-        insertBar.bindValue(5, bar.high);
-        insertBar.bindValue(6, bar.low);
-        insertBar.bindValue(7, bar.close);
-        insertBar.bindValue(8, bar.adjustedClose.has_value()
-                                  ? QVariant(*bar.adjustedClose) : QVariant());
-        insertBar.bindValue(9, bar.volume.has_value()
-                                  ? QVariant(*bar.volume) : QVariant());
-        if (!insertBar.exec()) {
-            setError(errorMessage, sqlError(insertBar));
+    // Insert bounded multi-row statements to reduce SQLite statement
+    // executions without exceeding conservative host-parameter limits.
+    constexpr qsizetype insertBatchSize = 50;
+    for (qsizetype batchStart = 0; batchStart < series.bars.size();
+         batchStart += insertBatchSize) {
+        const qsizetype batchCount = qMin(insertBatchSize,
+                                          series.bars.size() - batchStart);
+        QStringList rowPlaceholders;
+        rowPlaceholders.reserve(batchCount);
+        for (qsizetype row = 0; row < batchCount; ++row) {
+            rowPlaceholders.append(QStringLiteral("(?,?,?,?,?,?,?,?,?,?)"));
+        }
+
+        QSqlQuery insertBatch(m_database);
+        insertBatch.prepare(QStringLiteral(
+            "INSERT INTO market_bars (provider_id,instrument_id,interval,timestamp_ms,"
+            "open,high,low,close,adjusted_close,volume) VALUES %1")
+                                .arg(rowPlaceholders.join(QLatin1Char(','))));
+
+        for (qsizetype row = 0; row < batchCount; ++row) {
+            const auto& bar = series.bars.at(batchStart + row);
+            insertBatch.addBindValue(series.providerId);
+            insertBatch.addBindValue(series.instrumentId);
+            insertBatch.addBindValue(series.interval);
+            insertBatch.addBindValue(bar.timestamp.toUTC().toMSecsSinceEpoch());
+            insertBatch.addBindValue(bar.open);
+            insertBatch.addBindValue(bar.high);
+            insertBatch.addBindValue(bar.low);
+            insertBatch.addBindValue(bar.close);
+            insertBatch.addBindValue(bar.adjustedClose.has_value()
+                                         ? QVariant(*bar.adjustedClose) : QVariant());
+            insertBatch.addBindValue(bar.volume.has_value()
+                                         ? QVariant(*bar.volume) : QVariant());
+        }
+
+        if (!insertBatch.exec()) {
+            setError(errorMessage, sqlError(insertBatch));
             m_database.rollback();
             return false;
         }
