@@ -2,7 +2,7 @@
 
 A self-hosted quantitative-finance research terminal. The project is being developed as an independent implementation, using public provider specifications and a documented feature audit as references.
 
-> **Status: early foundation.** The repository currently contains project documentation and architecture decisions. No working terminal application or provider integration has been delivered yet.
+> **Status: application foundation implemented; build not yet executed.** The repository now contains a minimal Qt application shell and a Qt Test smoke suite. This is not yet a functional finance terminal or provider integration.
 
 ## Project goals
 
@@ -16,12 +16,26 @@ This repository is independent from the Jarvis trading-bot project.
 
 ## Technology direction
 
-The initial implementation direction is C++20, Qt 6.8.x, CMake 3.27+, and Python 3.11 where an analytics/provider runtime is justified. Exact dependencies and build presets will be frozen in a later build-system decision.
+- C++20
+- Qt 6.8.x
+- CMake 3.27+
+- Python 3.11 when an analytics/provider runtime is justified
+
+The initial application currently depends only on Qt Widgets. Python, database, charting, and network modules will be added when a vertical slice requires them.
 
 ## Documentation
 
 - [Project baseline](docs/PROJECT_BASELINE.md)
 - [ADR 0001 — Technology stack and upstream reuse boundary](docs/architecture/0001-technology-stack-and-reuse-boundary.md)
+- [Build and test instructions](docs/BUILDING.md)
+
+## Current implementation
+
+- [x] Minimal Qt application entry point.
+- [x] Main window shell with welcome content and ready status.
+- [x] Qt Test smoke cases for window identity, content, and status.
+- [ ] Compile and execute tests in a configured Qt 6.8 environment.
+- [ ] First data-backed feature vertical slice.
 
 ## Development workflow
 
@@ -36,11 +50,3 @@ The initial implementation direction is C++20, Qt 6.8.x, CMake 3.27+, and Python
 The initial feature and behavior audit references [Fincept Terminal](https://github.com/Fincept-Corporation/FinceptTerminal) at source revision `914134de5fd227fe66969c4591ac9ca7e461cdf4`. The reference is not a claim of code reuse or product affiliation.
 
 Review the upstream license and all applicable provider/data licenses before reusing code, assets, branding, or redistributing data. The upstream root license at the audited revision is AGPL-3.0.
-
-## Current milestone
-
-1. [x] Create repository and development branch.
-2. [x] Record project baseline.
-3. [x] Record technology and upstream reuse boundary.
-4. [ ] Freeze a minimal, reproducible build target.
-5. [ ] Implement and test the first vertical slice.
