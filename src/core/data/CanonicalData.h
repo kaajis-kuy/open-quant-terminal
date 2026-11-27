@@ -81,7 +81,7 @@ struct ProviderRawResult {
     QString requestId;
     QString responseSchemaVersion;
     QDateTime fetchedAt;
-    QJsonValue rawPayload;
+    QJsonValue rawPayload = QJsonValue(QJsonValue::Undefined);
     QString rawPayloadReference;
     QStringList redactedRequestArguments;
     QString errorMessage;
