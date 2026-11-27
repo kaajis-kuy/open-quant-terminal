@@ -24,6 +24,8 @@ add_executable(open-quant-terminal
     src/app/MainWindow.h
     src/core/data/CanonicalData.cpp
     src/core/data/CanonicalData.h
+    src/core/data/MarketData.cpp
+    src/core/data/MarketData.h
     src/core/providers/ProviderResponse.cpp
     src/core/providers/ProviderResponse.h
     src/core/providers/ProviderAdapter.cpp
@@ -92,6 +94,27 @@ if(OQT_BUILD_TESTS)
     )
 
     add_test(NAME tst_canonical_data COMMAND tst_canonical_data)
+
+    add_executable(tst_market_data
+        tests/tst_market_data.cpp
+        src/core/data/MarketData.cpp
+        src/core/data/MarketData.h
+        src/core/data/CanonicalData.cpp
+        src/core/data/CanonicalData.h
+    )
+
+    target_link_libraries(tst_market_data
+        PRIVATE
+            Qt6::Test
+            Qt6::Core
+    )
+
+    target_include_directories(tst_market_data
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    add_test(NAME tst_market_data COMMAND tst_market_data)
 
     add_executable(tst_provider_response
         tests/tst_provider_response.cpp
