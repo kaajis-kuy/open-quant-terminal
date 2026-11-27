@@ -209,6 +209,14 @@ void FredClient::finish(const QString& errorMessage) {
         return;
     }
 
+    if (!errorMessage.isEmpty() && !m_observations.isEmpty()) {
+        m_truncated = true;
+        if (m_nextPageCursor.isEmpty()) {
+            m_nextPageCursor = QStringLiteral("offset=%1")
+                .arg(m_request.offset + m_observations.size());
+        }
+    }
+
     QJsonObject result;
     result.insert(QStringLiteral("count"), m_totalCount < 0
         ? static_cast<qint64>(m_observations.size()) : m_totalCount);
@@ -220,7 +228,17 @@ void FredClient::finish(const QString& errorMessage) {
         result.insert(QStringLiteral("next_cursor"), m_nextPageCursor);
     }
 
-    const QByteArray json = QJsonDocument(result).toJson(QJsonDocument::Compact);
+    QJsonObject output = result;
+    if (!errorMessage.isEmpty() && !m_observations.isEmpty()) {
+        output = QJsonObject{
+            {QStringLiteral("data"), result},
+            {QStringLiteral("error"), errorMessage}
+        };
+    } else if (!errorMessage.isEmpty()) {
+        output.insert(QStringLiteral("error_message"), errorMessage);
+    }
+
+    const QByteArray json = QJsonDocument(output).toJson(QJsonDocument::Compact);
     const QString requestId = m_requestId;
     const int pagesFetched = m_pagesFetched;
     m_busy = false;
