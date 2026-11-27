@@ -788,6 +788,60 @@ private slots:
         QVERIFY(loaded->validate().isEmpty());
     }
 
+    void benchmarksLargeSeriesBatchPersistence() {
+        SqliteMarketDataStore store(QStringLiteral(":memory:"));
+        QString error;
+        QVERIFY2(store.open(&error), qPrintable(error));
+
+        CanonicalMarketSeries source = sampleSeries();
+        source.instrumentId = QStringLiteral("equity.batch-benchmark");
+        source.providerSymbol = QStringLiteral("BATCH");
+        source.interval = QStringLiteral("1m");
+        source.bars.clear();
+
+        const QDateTime firstTimestamp = QDateTime::fromString(
+            QStringLiteral("2026-11-01T00:00:00.000Z"), Qt::ISODateWithMs);
+        constexpr qsizetype barCount = 10000;
+        source.bars.reserve(barCount);
+        for (qsizetype i = 0; i < barCount; ++i) {
+            CanonicalMarketBar bar;
+            bar.timestamp = firstTimestamp.addSecs(i * 60);
+            bar.open = 100.0 + static_cast<double>(i % 1000) * 0.01;
+            bar.high = bar.open + 1.0;
+            bar.low = bar.open - 1.0;
+            bar.close = bar.open + 0.25;
+            if (i % 3 != 0) {
+                bar.adjustedClose = bar.close - 0.05;
+                bar.volume = static_cast<double>(i + 1);
+            }
+            source.bars.append(bar);
+        }
+        QVERIFY(source.validate().isEmpty());
+
+        QElapsedTimer timer;
+        timer.start();
+        QVERIFY2(store.saveSeries(source, &error), qPrintable(error));
+        const qint64 saveElapsedMs = timer.elapsed();
+
+        const auto loaded = store.loadSeries(source.providerId, source.instrumentId,
+                                             source.interval, &error);
+        QVERIFY2(loaded.has_value(), qPrintable(error));
+        QCOMPARE(loaded->bars.size(), barCount);
+        QCOMPARE(loaded->bars.first().timestamp, firstTimestamp);
+        QCOMPARE(loaded->bars.last().timestamp,
+                 firstTimestamp.addSecs((barCount - 1) * 60));
+        QCOMPARE(loaded->bars.at(9999).close, source.bars.at(9999).close);
+        QCOMPARE(loaded->bars.at(9999).volume, source.bars.at(9999).volume);
+        QVERIFY(loaded->validate().isEmpty());
+
+        const double barsPerSecond = saveElapsedMs > 0
+            ? static_cast<double>(barCount) * 1000.0 / static_cast<double>(saveElapsedMs)
+            : 0.0;
+        qInfo().noquote() << QStringLiteral(
+            "SQLite batch write benchmark: %1 bars in %2 ms (%3 bars/s)")
+            .arg(barCount).arg(saveElapsedMs).arg(barsPerSecond, 0, 'f', 0);
+    }
+
     void rejectsInvalidSeriesWithoutWriting() {
         SqliteMarketDataStore store(QStringLiteral(":memory:"));
         QString error;
