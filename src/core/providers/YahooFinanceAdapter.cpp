@@ -133,9 +133,11 @@ AdapterResult YahooFinanceAdapter::normalize(
     if (results.isEmpty() || !results.first().isObject()) {
         series.quality.status = oqt::data::DataStatus::Empty;
         series.quality.warnings.append(QStringLiteral("Yahoo Finance returned no chart result"));
-        result.dataset.reset();
         result.responseStatus = ResponseStatus::Empty;
-        result.errors.append(QStringLiteral("Yahoo Finance chart result is empty; no market series can be normalized"));
+        result.marketSeries = std::move(series);
+        if (!result.marketSeries->validate().isEmpty()) {
+            result.errors.append(result.marketSeries->validate());
+        }
         return result;
     }
 
