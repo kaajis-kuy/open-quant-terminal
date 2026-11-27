@@ -149,7 +149,10 @@ private slots:
         QCOMPARE(args.at(2).toInt(), 2);
         QVERIFY(args.at(3).toString().isEmpty());
         const QJsonObject output = QJsonDocument::fromJson(args.at(1).toByteArray()).object();
-        QCOMPARE(output.value(QStringLiteral("observations")).toArray().size(), 2);
+        const QJsonArray observations = output.value(QStringLiteral("observations")).toArray();
+        QCOMPARE(observations.size(), 2);
+        QVERIFY(observations.at(0).isObject());
+        QVERIFY(observations.at(1).isObject());
         QVERIFY(!output.value(QStringLiteral("truncated")).toBool());
     }
 
