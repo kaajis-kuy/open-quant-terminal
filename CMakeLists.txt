@@ -1,0 +1,64 @@
+cmake_minimum_required(VERSION 3.27)
+
+project(OpenQuantTerminal
+    VERSION 0.1.0
+    DESCRIPTION "Self-hosted quantitative finance research terminal"
+    LANGUAGES CXX
+)
+
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+set(CMAKE_AUTORCC ON)
+
+find_package(Qt6 6.8 REQUIRED COMPONENTS Widgets)
+
+qt_standard_project_setup()
+
+add_executable(open-quant-terminal
+    src/main.cpp
+    src/app/MainWindow.cpp
+    src/app/MainWindow.h
+)
+
+target_link_libraries(open-quant-terminal
+    PRIVATE
+        Qt6::Widgets
+)
+
+target_include_directories(open-quant-terminal
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+option(OQT_BUILD_TESTS "Build Open Quant Terminal tests" OFF)
+
+if(OQT_BUILD_TESTS)
+    enable_testing()
+    find_package(Qt6 6.8 REQUIRED COMPONENTS Test)
+
+    add_executable(tst_main_window
+        tests/tst_main_window.cpp
+        src/app/MainWindow.cpp
+        src/app/MainWindow.h
+    )
+
+    target_link_libraries(tst_main_window
+        PRIVATE
+            Qt6::Test
+            Qt6::Widgets
+    )
+
+    target_include_directories(tst_main_window
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    add_test(NAME tst_main_window COMMAND tst_main_window)
+    set_tests_properties(tst_main_window PROPERTIES
+        ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
+    )
+endif()
