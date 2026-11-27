@@ -34,6 +34,8 @@ add_executable(open-quant-terminal
     src/core/providers/FredAdapter.h
     src/core/providers/YahooFinanceAdapter.cpp
     src/core/providers/YahooFinanceAdapter.h
+    src/core/providers/YahooRequestBuilder.cpp
+    src/core/providers/YahooRequestBuilder.h
     src/core/providers/FredRequestBuilder.cpp
     src/core/providers/FredRequestBuilder.h
     src/core/providers/FredClient.cpp
@@ -234,6 +236,25 @@ if(OQT_BUILD_TESTS)
     )
 
     add_test(NAME tst_fred_request_builder COMMAND tst_fred_request_builder)
+
+    add_executable(tst_yahoo_request_builder
+        tests/tst_yahoo_request_builder.cpp
+        src/core/providers/YahooRequestBuilder.cpp
+        src/core/providers/YahooRequestBuilder.h
+    )
+
+    target_link_libraries(tst_yahoo_request_builder
+        PRIVATE
+            Qt6::Test
+            Qt6::Core
+    )
+
+    target_include_directories(tst_yahoo_request_builder
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    add_test(NAME tst_yahoo_request_builder COMMAND tst_yahoo_request_builder)
 
     add_executable(tst_fred_client
         tests/tst_fred_client.cpp
