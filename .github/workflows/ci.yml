@@ -26,6 +26,14 @@ jobs:
 
       - name: Install build tools
         run: |
+          # The hosted runner may include an unrelated Microsoft package feed.
+          # Disable only source files that reference it so its outage cannot block
+          # installation of the Ubuntu build dependencies.
+          for source in /etc/apt/sources.list.d/*; do
+            if [ -f "$source" ] && sudo grep -q "packages.microsoft.com" "$source"; then
+              sudo mv "$source" "${source}.disabled"
+            fi
+          done
           sudo apt-get update
           sudo apt-get install --yes cmake ninja-build g++
 
