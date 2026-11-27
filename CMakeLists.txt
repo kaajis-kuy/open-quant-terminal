@@ -376,6 +376,8 @@ if(OQT_BUILD_TESTS)
         tests/tst_yahoo_pipeline.cpp
         src/core/providers/YahooPipeline.cpp
         src/core/providers/YahooPipeline.h
+        src/core/services/ProviderNormalizationService.cpp
+        src/core/services/ProviderNormalizationService.h
         src/core/providers/YahooClient.cpp
         src/core/providers/YahooClient.h
         src/core/providers/YahooRequestBuilder.cpp
@@ -432,6 +434,8 @@ if(OQT_BUILD_TESTS)
         tests/tst_fred_pipeline.cpp
         src/core/providers/FredPipeline.cpp
         src/core/providers/FredPipeline.h
+        src/core/services/ProviderNormalizationService.cpp
+        src/core/services/ProviderNormalizationService.h
         src/core/providers/FredClient.cpp
         src/core/providers/FredClient.h
         src/core/providers/FredRequestBuilder.cpp
