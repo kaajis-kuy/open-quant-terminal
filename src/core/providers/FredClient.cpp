@@ -1,0 +1,224 @@
+#include "core/providers/FredClient.h"
+
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QNetworkReply>
+#include <QNetworkRequest>
+#include <QTimer>
+#include <QUrlQuery>
+
+#include <algorithm>
+
+namespace oqt::providers {
+namespace {
+
+constexpr int kMaxRetries = 3;
+constexpr int kTransferTimeoutMs = 15000;
+constexpr int kMaxRetryDelaySeconds = 30;
+
+int retryDelaySeconds(int retryCount) {
+    return std::min(1 << std::min(retryCount, 4), kMaxRetryDelaySeconds);
+}
+
+} // namespace
+
+FredClient::FredClient(QNetworkAccessManager* manager, QObject* parent)
+    : QObject(parent),
+      m_manager(manager ? manager : new QNetworkAccessManager(this)) {
+}
+
+bool FredClient::isBusy() const {
+    return m_busy;
+}
+
+bool FredClient::fetchObservations(FredObservationRequest request,
+                                   QString requestId,
+                                   int maxPages) {
+    if (m_busy || requestId.trimmed().isEmpty()
+        || maxPages < 1 || maxPages > 100) {
+        return false;
+    }
+
+    const FredBuiltRequest validation = FredRequestBuilder::observations(request);
+    if (!validation.isValid()) {
+        return false;
+    }
+
+    m_request = std::move(request);
+    m_requestId = std::move(requestId);
+    m_maxPages = maxPages;
+    m_pagesFetched = 0;
+    m_retryCount = 0;
+    m_totalCount = -1;
+    m_observations = {};
+    m_truncated = false;
+    m_nextPageCursor.clear();
+    m_busy = true;
+
+    requestCurrentPage();
+    return true;
+}
+
+void FredClient::cancel() {
+    if (!m_busy) {
+        return;
+    }
+    if (m_reply) {
+        m_reply->abort();
+    } else {
+        finish(QStringLiteral("FRED request cancelled"));
+    }
+}
+
+void FredClient::requestCurrentPage() {
+    if (!m_busy) {
+        return;
+    }
+
+    FredObservationRequest pageRequest = m_request;
+    pageRequest.offset = m_request.offset + static_cast<int>(m_observations.size());
+    const FredBuiltRequest built = FredRequestBuilder::observations(pageRequest);
+    if (!built.isValid()) {
+        finish(built.error);
+        return;
+    }
+
+    QNetworkRequest request(built.url);
+    request.setHeader(QNetworkRequest::UserAgentHeader,
+                      QStringLiteral("OpenQuantTerminal/0.1"));
+    request.setRawHeader("Accept", "application/json");
+    request.setTransferTimeout(kTransferTimeoutMs);
+    m_reply = m_manager->get(request);
+
+    connect(m_reply, &QNetworkReply::finished, this, [this, reply = m_reply.data()] {
+        if (reply) {
+            handleReply(reply);
+        }
+    });
+}
+
+void FredClient::handleReply(QNetworkReply* reply) {
+    if (!reply || !m_busy) {
+        if (reply) {
+            reply->deleteLater();
+        }
+        return;
+    }
+
+    m_reply = nullptr;
+    const int httpStatus = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+    const QByteArray payload = reply->readAll();
+    const auto networkError = reply->error();
+    const QString networkErrorText = reply->errorString();
+    const int retryAfter = reply->rawHeader("Retry-After").toInt();
+    reply->deleteLater();
+
+    if (httpStatus == 429 || httpStatus >= 500 || networkError != QNetworkReply::NoError) {
+        retryOrFinish(networkError == QNetworkReply::NoError
+                          ? QStringLiteral("FRED HTTP %1").arg(httpStatus)
+                          : networkErrorText,
+                      httpStatus, retryAfter);
+        return;
+    }
+
+    if (httpStatus < 200 || httpStatus >= 300) {
+        finish(QStringLiteral("FRED HTTP %1").arg(httpStatus));
+        return;
+    }
+
+    QJsonParseError parseError;
+    const QJsonDocument document = QJsonDocument::fromJson(payload, &parseError);
+    if (parseError.error != QJsonParseError::NoError || !document.isObject()) {
+        finish(QStringLiteral("Invalid FRED JSON response"));
+        return;
+    }
+
+    const QJsonObject root = document.object();
+    if (root.contains(QStringLiteral("error_code"))
+        || root.contains(QStringLiteral("error_message"))) {
+        const QString message = root.value(QStringLiteral("error_message")).toString(
+            QStringLiteral("FRED API returned an error"));
+        finish(message);
+        return;
+    }
+
+    const QJsonValue rowsValue = root.value(QStringLiteral("observations"));
+    if (!rowsValue.isArray()) {
+        finish(QStringLiteral("FRED response is missing observations array"));
+        return;
+    }
+
+    const QJsonArray rows = rowsValue.toArray();
+    if (m_totalCount < 0) {
+        m_totalCount = root.value(QStringLiteral("count")).toVariant().toLongLong();
+    }
+    m_observations.append(rows);
+    ++m_pagesFetched;
+    m_retryCount = 0;
+
+    const qint64 nextOffset = m_request.offset + m_observations.size();
+    const bool hasMoreByCount = m_totalCount >= 0 && nextOffset < m_totalCount;
+    const bool pageMayBeFull = rows.size() >= m_request.limit;
+
+    if (!hasMoreByCount || !pageMayBeFull) {
+        finish();
+        return;
+    }
+
+    if (m_pagesFetched >= m_maxPages) {
+        m_truncated = true;
+        m_nextPageCursor = QStringLiteral("offset=%1").arg(nextOffset);
+        finish();
+        return;
+    }
+
+    requestCurrentPage();
+}
+
+void FredClient::retryOrFinish(const QString& reason, int httpStatus,
+                               int retryAfterSeconds) {
+    Q_UNUSED(httpStatus);
+    if (m_retryCount >= kMaxRetries) {
+        finish(reason.isEmpty() ? QStringLiteral("FRED request failed after retries")
+                                : reason);
+        return;
+    }
+
+    const int delay = retryAfterSeconds > 0
+        ? std::min(retryAfterSeconds, kMaxRetryDelaySeconds)
+        : retryDelaySeconds(m_retryCount);
+    ++m_retryCount;
+    QTimer::singleShot(delay * 1000, this, [this] {
+        if (m_busy) {
+            requestCurrentPage();
+        }
+    });
+}
+
+void FredClient::finish(const QString& errorMessage) {
+    if (!m_busy) {
+        return;
+    }
+
+    QJsonObject result;
+    result.insert(QStringLiteral("count"), m_totalCount < 0
+        ? static_cast<qint64>(m_observations.size()) : m_totalCount);
+    result.insert(QStringLiteral("offset"), m_request.offset);
+    result.insert(QStringLiteral("limit"), m_request.limit);
+    result.insert(QStringLiteral("observations"), m_observations);
+    result.insert(QStringLiteral("truncated"), m_truncated);
+    if (!m_nextPageCursor.isEmpty()) {
+        result.insert(QStringLiteral("next_cursor"), m_nextPageCursor);
+    }
+
+    const QByteArray json = QJsonDocument(result).toJson(QJsonDocument::Compact);
+    const QString requestId = m_requestId;
+    const int pagesFetched = m_pagesFetched;
+    m_busy = false;
+    m_reply = nullptr;
+    m_request.apiKey.clear();
+    m_requestId.clear();
+    emit finished(requestId, json, pagesFetched, errorMessage);
+}
+
+} // namespace oqt::providers
