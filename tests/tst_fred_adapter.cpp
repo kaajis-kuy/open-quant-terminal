@@ -118,6 +118,33 @@ private slots:
         QVERIFY(result.dataset->quality.isPartial);
     }
 
+    void redactsApiKeyFromRawRequestMetadata() {
+        FredAdapter adapter;
+        auto context = fredContext();
+        context.redactedParameters.insert(QStringLiteral("api_key"),
+                                          QStringLiteral("sensitive-test-key"));
+        const auto response = responseFrom(R"({"observations":[],"count":0,"offset":0})");
+        const auto result = adapter.normalize(response, context);
+        QVERIFY(result.rawResult.redactedRequestArguments.join(";")
+                    .contains(QStringLiteral("[REDACTED]")));
+        QVERIFY(!result.rawResult.redactedRequestArguments.join(";")
+                     .contains(QStringLiteral("sensitive-test-key")));
+    }
+
+    void malformedOnlyRowsRemainPartialNotEmpty() {
+        FredAdapter adapter;
+        const auto response = responseFrom(R"({
+            "count":1,"offset":0,"limit":100000,
+            "observations":[{"date":"invalid-date","value":"12"}]
+        })");
+        const auto result = adapter.normalize(response, fredContext());
+        QVERIFY2(result.errors.isEmpty(), qPrintable(result.errors.join("; ")));
+        QVERIFY(result.isValid());
+        QCOMPARE(result.dataset->quality.status, oqt::data::DataStatus::Partial);
+        QVERIFY(result.dataset->quality.isPartial);
+        QVERIFY(result.dataset->observations.isEmpty());
+    }
+
     void rejectsFredApiErrorPayload() {
         FredAdapter adapter;
         const auto response = responseFrom(R"({
