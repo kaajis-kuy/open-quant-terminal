@@ -58,14 +58,13 @@ ProviderResponse ProviderResponse::decode(const QByteArray& json) {
             response.metadata = root.value(QStringLiteral("metadata")).toObject();
         }
 
+        response.errorMessage = readError(root);
         if (root.contains(QStringLiteral("data"))) {
             response.data = root.value(QStringLiteral("data"));
-        } else {
+        } else if (response.errorMessage.isEmpty()) {
             // A provider may return a domain object directly rather than an envelope.
             response.data = root;
         }
-
-        response.errorMessage = readError(root);
         response.truncated = root.value(QStringLiteral("truncated")).toBool()
             || response.metadata.value(QStringLiteral("truncated")).toBool();
         response.nextPageCursor = root.value(QStringLiteral("next_cursor")).toString();
