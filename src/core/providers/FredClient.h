@@ -42,7 +42,7 @@ private:
     void requestCurrentPage();
     void handleReply(QNetworkReply* reply);
     void retryOrFinish(const QString& reason, int httpStatus = 0,
-                       int retryAfterSeconds = 0);
+                       int retryAfterSeconds = -1);
     void finish(const QString& errorMessage = {});
 
     QNetworkAccessManager* m_manager = nullptr;
