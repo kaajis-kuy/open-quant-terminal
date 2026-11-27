@@ -8,7 +8,9 @@ namespace oqt::providers {
 
 YahooPipeline::YahooPipeline(YahooClient* client, QObject* parent)
     : QObject(parent),
-      m_client(client ? client : new YahooClient(nullptr, this)) {
+      m_client(client ? client : new YahooClient(nullptr, this)),
+      m_normalizer(m_registry) {
+    m_registry.registerAdapter(std::make_shared<YahooFinanceAdapter>());
     qRegisterMetaType<oqt::providers::AdapterResult>();
     connect(m_client, &YahooClient::finished, this,
             &YahooPipeline::handleClientFinished);
