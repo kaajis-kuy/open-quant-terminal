@@ -644,6 +644,105 @@ private slots:
         QSqlDatabase::removeDatabase(connectionName);
     }
 
+
+    void enablesWalForPersistentMarketDataDatabase() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString databasePath = directory.filePath(QStringLiteral("wal-mode.sqlite"));
+
+        {
+            SqliteMarketDataStore store(databasePath);
+            QString error;
+            QVERIFY2(store.open(&error), qPrintable(error));
+        }
+
+        const QString connectionName = QStringLiteral("wal-mode-check");
+        {
+            QSqlDatabase database = QSqlDatabase::addDatabase(
+                QStringLiteral("QSQLITE"), connectionName);
+            database.setDatabaseName(databasePath);
+            QVERIFY(database.open());
+
+            QSqlQuery query(database);
+            QVERIFY(query.exec(QStringLiteral("PRAGMA journal_mode")));
+            QVERIFY(query.next());
+            QCOMPARE(query.value(0).toString().toLower(), QStringLiteral("wal"));
+            database.close();
+        }
+        QSqlDatabase::removeDatabase(connectionName);
+    }
+
+    void walAllowsWriterCommitWhileReaderHoldsSnapshot() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString databasePath = directory.filePath(QStringLiteral("wal-concurrency.sqlite"));
+        const CanonicalMarketSeries source = sampleSeries();
+
+        {
+            SqliteMarketDataStore store(databasePath);
+            QString error;
+            QVERIFY2(store.open(&error), qPrintable(error));
+            QVERIFY2(store.saveSeries(source, &error), qPrintable(error));
+        }
+
+        const QString readerName = QStringLiteral("wal-snapshot-reader");
+        const QString writerName = QStringLiteral("wal-snapshot-writer");
+        {
+            QSqlDatabase reader = QSqlDatabase::addDatabase(
+                QStringLiteral("QSQLITE"), readerName);
+            reader.setDatabaseName(databasePath);
+            QVERIFY(reader.open());
+
+            QSqlDatabase writer = QSqlDatabase::addDatabase(
+                QStringLiteral("QSQLITE"), writerName);
+            writer.setDatabaseName(databasePath);
+            QVERIFY(writer.open());
+
+            QVERIFY(reader.transaction());
+            QSqlQuery establishSnapshot(reader);
+            QVERIFY(establishSnapshot.exec(QStringLiteral(
+                "SELECT close FROM market_bars WHERE provider_id='yahoo_finance' "
+                "AND instrument_id='equity.aapl' AND interval='1d' "
+                "ORDER BY timestamp_ms LIMIT 1")));
+            QVERIFY(establishSnapshot.next());
+            QCOMPARE(establishSnapshot.value(0).toDouble(), 103.0);
+            establishSnapshot.finish();
+
+            // A committed write must not wait for the active reader to finish.
+            QVERIFY(writer.transaction());
+            QSqlQuery update(writer);
+            QVERIFY(update.exec(QStringLiteral(
+                "UPDATE market_series SET provider_symbol='AAPL_UPDATED' "
+                "WHERE provider_id='yahoo_finance' AND instrument_id='equity.aapl' "
+                "AND interval='1d'")));
+            QVERIFY2(writer.commit(), qPrintable(writer.lastError().text()));
+
+            // The reader continues to see its original consistent snapshot.
+            QSqlQuery snapshotValue(reader);
+            QVERIFY(snapshotValue.exec(QStringLiteral(
+                "SELECT provider_symbol FROM market_series "
+                "WHERE provider_id='yahoo_finance' AND instrument_id='equity.aapl' "
+                "AND interval='1d'")));
+            QVERIFY(snapshotValue.next());
+            QCOMPARE(snapshotValue.value(0).toString(), source.providerSymbol);
+            snapshotValue.finish();
+            QVERIFY(reader.commit());
+
+            QSqlQuery latest(writer);
+            QVERIFY(latest.exec(QStringLiteral(
+                "SELECT provider_symbol FROM market_series "
+                "WHERE provider_id='yahoo_finance' AND instrument_id='equity.aapl' "
+                "AND interval='1d'")));
+            QVERIFY(latest.next());
+            QCOMPARE(latest.value(0).toString(), QStringLiteral("AAPL_UPDATED"));
+
+            reader.close();
+            writer.close();
+        }
+        QSqlDatabase::removeDatabase(readerName);
+        QSqlDatabase::removeDatabase(writerName);
+    }
+
     void rejectsInvalidSeriesWithoutWriting() {
         SqliteMarketDataStore store(QStringLiteral(":memory:"));
         QString error;
