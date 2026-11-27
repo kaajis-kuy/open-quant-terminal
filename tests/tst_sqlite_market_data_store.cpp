@@ -5,6 +5,7 @@
 #include <QFile>
 #include <QTemporaryDir>
 #include <QSqlDatabase>
+#include <QSqlError>
 #include <QSqlQuery>
 
 using namespace oqt::data;
