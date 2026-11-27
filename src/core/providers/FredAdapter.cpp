@@ -176,7 +176,7 @@ AdapterResult FredAdapter::normalize(
     if (response.status == ResponseStatus::Partial || response.truncated) {
         dataset.quality.isPartial = true;
         dataset.quality.isTruncated = dataset.quality.isTruncated || response.truncated;
-        dataset.quality.status = ResponseStatus::Partial;
+        dataset.quality.status = oqt::data::DataStatus::Partial;
         if (!response.nextPageCursor.isEmpty()) {
             dataset.quality.nextPageCursor = response.nextPageCursor;
         }
