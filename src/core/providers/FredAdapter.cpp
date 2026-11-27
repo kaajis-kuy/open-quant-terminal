@@ -18,7 +18,16 @@ QString parameter(const QJsonObject& parameters, const QString& key,
 QStringList redactedArguments(const QJsonObject& parameters) {
     QStringList result;
     for (auto it = parameters.begin(); it != parameters.end(); ++it) {
-        result.append(it.key() + QLatin1Char('=') + it.value().toVariant().toString());
+        const QString key = it.key();
+        const QString normalizedKey = key.toLower();
+        const bool sensitive = normalizedKey.contains(QStringLiteral("api_key"))
+            || normalizedKey == QStringLiteral("apikey")
+            || normalizedKey.contains(QStringLiteral("token"))
+            || normalizedKey.contains(QStringLiteral("secret"))
+            || normalizedKey.contains(QStringLiteral("authorization"));
+        result.append(key + QLatin1Char('=')
+            + (sensitive ? QStringLiteral("[REDACTED]")
+                         : it.value().toVariant().toString()));
     }
     result.sort(Qt::CaseSensitive);
     return result;
@@ -175,6 +184,9 @@ AdapterResult FredAdapter::normalize(
 
     if (response.status == ResponseStatus::Partial || response.truncated) {
         dataset.quality.isPartial = true;
+        if (!response.errorMessage.isEmpty()) {
+            dataset.quality.warnings.append(response.errorMessage);
+        }
         dataset.quality.isTruncated = dataset.quality.isTruncated || response.truncated;
         dataset.quality.status = oqt::data::DataStatus::Partial;
         if (!response.nextPageCursor.isEmpty()) {
@@ -186,7 +198,11 @@ AdapterResult FredAdapter::normalize(
             : oqt::data::DataStatus::Ok;
     }
 
-    if (response.status == ResponseStatus::Empty || dataset.observations.isEmpty()) {
+    const bool hasNoUsableRows = dataset.observations.isEmpty()
+        && rejectedRows == 0
+        && response.status != ResponseStatus::Partial
+        && !response.truncated;
+    if (response.status == ResponseStatus::Empty || hasNoUsableRows) {
         dataset.quality.status = oqt::data::DataStatus::Empty;
     }
 
