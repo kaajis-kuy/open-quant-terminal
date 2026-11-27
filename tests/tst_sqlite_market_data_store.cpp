@@ -168,7 +168,7 @@ private slots:
         CanonicalMarketSeries update = original;
         update.provenance.retrievedAt = QDateTime::fromString(
             QStringLiteral("2026-11-29T00:00:00.000Z"), Qt::ISODateWithMs);
-        update.quality.status = DataStatus::Complete;
+        update.quality.status = DataStatus::Ok;
         update.quality.isPartial = false;
         update.quality.missingValueCounts.clear();
         update.quality.warnings.clear();
@@ -210,7 +210,7 @@ private slots:
         QCOMPARE(merged->bars.at(2).close, 110.0);
         QVERIFY(!merged->bars.at(2).adjustedClose.has_value());
         QCOMPARE(merged->provenance.retrievedAt, update.provenance.retrievedAt);
-        QCOMPARE(merged->quality.status, DataStatus::Complete);
+        QCOMPARE(merged->quality.status, DataStatus::Ok);
         QVERIFY(merged->validate().isEmpty());
     }
 
