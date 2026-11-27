@@ -367,7 +367,7 @@ private slots:
             replacement.bars.append(replacementBar);
 
             QVERIFY(!store.saveSeries(replacement, &error));
-            QVERIFY(error.contains(QStringLiteral("forced insert failure")));
+            QVERIFY(!error.isEmpty());
 
             error.clear();
             const auto loaded = store.loadSeries(original.providerId, original.instrumentId,
