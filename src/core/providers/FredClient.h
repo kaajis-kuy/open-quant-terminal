@@ -6,12 +6,12 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QNetworkAccessManager>
+#include <QNetworkReply>
 #include <QObject>
 #include <QPointer>
 
 namespace oqt::providers {
 
-class QNetworkReply;
 
 class FredClient final : public QObject {
     Q_OBJECT
