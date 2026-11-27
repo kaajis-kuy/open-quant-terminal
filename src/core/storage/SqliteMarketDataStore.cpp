@@ -416,6 +416,121 @@ bool SqliteMarketDataStore::saveSeries(
     return true;
 }
 
+
+bool SqliteMarketDataStore::upsertSeries(
+    const oqt::data::CanonicalMarketSeries& series, QString* errorMessage) {
+    if (!isOpen()) {
+        setError(errorMessage, QStringLiteral("database is not open"));
+        return false;
+    }
+    const QStringList validationErrors = series.validate();
+    if (!validationErrors.isEmpty()) {
+        setError(errorMessage, validationErrors.join(QStringLiteral("; ")));
+        return false;
+    }
+    if (!m_database.transaction()) {
+        setError(errorMessage, m_database.lastError().text());
+        return false;
+    }
+
+    QSqlQuery header(m_database);
+    header.prepare(QStringLiteral(
+        "INSERT INTO market_series (provider_id,instrument_id,interval,provider_symbol,"
+        "currency,source_url,attribution_id,retrieved_at,quality_status,is_partial,"
+        "is_truncated,missing_value_counts,warnings,next_page_cursor) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+        "ON CONFLICT(provider_id,instrument_id,interval) DO UPDATE SET "
+        "provider_symbol=excluded.provider_symbol,currency=excluded.currency,"
+        "source_url=excluded.source_url,attribution_id=excluded.attribution_id,"
+        "retrieved_at=excluded.retrieved_at,quality_status=excluded.quality_status,"
+        "is_partial=excluded.is_partial,is_truncated=excluded.is_truncated,"
+        "missing_value_counts=excluded.missing_value_counts,warnings=excluded.warnings,"
+        "next_page_cursor=excluded.next_page_cursor"));
+    header.addBindValue(series.providerId);
+    header.addBindValue(series.instrumentId);
+    header.addBindValue(series.interval);
+    header.addBindValue(series.providerSymbol);
+    header.addBindValue(series.currency);
+    header.addBindValue(series.provenance.sourceUrl);
+    header.addBindValue(series.provenance.attributionId);
+    header.addBindValue(utcIso(series.provenance.retrievedAt));
+    header.addBindValue(static_cast<int>(series.quality.status));
+    header.addBindValue(series.quality.isPartial ? 1 : 0);
+    header.addBindValue(series.quality.isTruncated ? 1 : 0);
+
+    QJsonObject missingCounts;
+    for (auto it = series.quality.missingValueCounts.cbegin();
+         it != series.quality.missingValueCounts.cend(); ++it) {
+        missingCounts.insert(it.key(), static_cast<double>(it.value()));
+    }
+    header.addBindValue(QString::fromUtf8(
+        QJsonDocument(missingCounts).toJson(QJsonDocument::Compact)));
+    QJsonArray warnings;
+    for (const QString& warning : series.quality.warnings) warnings.append(warning);
+    header.addBindValue(QString::fromUtf8(
+        QJsonDocument(warnings).toJson(QJsonDocument::Compact)));
+    header.addBindValue(series.quality.nextPageCursor);
+
+    if (!header.exec()) {
+        setError(errorMessage, sqlError(header));
+        m_database.rollback();
+        return false;
+    }
+
+
+    // Insert bounded multi-row statements to reduce SQLite statement
+    // executions without exceeding conservative host-parameter limits.
+    constexpr qsizetype insertBatchSize = 50;
+    for (qsizetype batchStart = 0; batchStart < series.bars.size();
+         batchStart += insertBatchSize) {
+        const qsizetype batchCount = qMin(insertBatchSize,
+                                          series.bars.size() - batchStart);
+        QStringList rowPlaceholders;
+        rowPlaceholders.reserve(batchCount);
+        for (qsizetype row = 0; row < batchCount; ++row) {
+            rowPlaceholders.append(QStringLiteral("(?,?,?,?,?,?,?,?,?,?)"));
+        }
+
+        QSqlQuery insertBatch(m_database);
+        insertBatch.prepare(QStringLiteral(
+            "INSERT INTO market_bars (provider_id,instrument_id,interval,timestamp_ms,"
+            "open,high,low,close,adjusted_close,volume) VALUES %1 "
+            "ON CONFLICT(provider_id,instrument_id,interval,timestamp_ms) DO UPDATE SET "
+            "open=excluded.open,high=excluded.high,low=excluded.low,close=excluded.close,"
+            "adjusted_close=excluded.adjusted_close,volume=excluded.volume")
+                                .arg(rowPlaceholders.join(QLatin1Char(','))));
+
+        for (qsizetype row = 0; row < batchCount; ++row) {
+            const auto& bar = series.bars.at(batchStart + row);
+            insertBatch.addBindValue(series.providerId);
+            insertBatch.addBindValue(series.instrumentId);
+            insertBatch.addBindValue(series.interval);
+            insertBatch.addBindValue(bar.timestamp.toUTC().toMSecsSinceEpoch());
+            insertBatch.addBindValue(bar.open);
+            insertBatch.addBindValue(bar.high);
+            insertBatch.addBindValue(bar.low);
+            insertBatch.addBindValue(bar.close);
+            insertBatch.addBindValue(bar.adjustedClose.has_value()
+                                         ? QVariant(*bar.adjustedClose) : QVariant());
+            insertBatch.addBindValue(bar.volume.has_value()
+                                         ? QVariant(*bar.volume) : QVariant());
+        }
+
+        if (!insertBatch.exec()) {
+            setError(errorMessage, sqlError(insertBatch));
+            m_database.rollback();
+            return false;
+        }
+    }
+
+    if (!m_database.commit()) {
+        setError(errorMessage, m_database.lastError().text());
+        m_database.rollback();
+        return false;
+    }
+    return true;
+}
+
 std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSeries(
     const QString& providerId, const QString& instrumentId, const QString& interval,
     QString* errorMessage) const {
