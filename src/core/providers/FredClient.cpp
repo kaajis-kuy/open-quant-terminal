@@ -71,6 +71,7 @@ bool FredClient::fetchObservations(FredObservationRequest request,
         return false;
     }
 
+    ++m_generation;
     m_request = std::move(request);
     m_requestId = std::move(requestId);
     m_maxPages = maxPages;
@@ -92,6 +93,7 @@ void FredClient::cancel() {
     }
     const QString requestId = m_requestId;
     const int pagesFetched = m_pagesFetched;
+    ++m_generation;
     QPointer<QNetworkReply> reply = m_reply;
     m_busy = false;
     m_reply = nullptr;
@@ -249,8 +251,9 @@ void FredClient::retryOrFinish(const QString& reason, int httpStatus,
         ? std::min(retryAfterSeconds, kMaxRetryDelaySeconds)
         : retryDelaySeconds(m_retryCount);
     ++m_retryCount;
-    QTimer::singleShot(delay * 1000, this, [this] {
-        if (m_busy) {
+    const quint64 generation = m_generation;
+    QTimer::singleShot(delay * 1000, this, [this, generation] {
+        if (m_busy && generation == m_generation) {
             requestCurrentPage();
         }
     });
