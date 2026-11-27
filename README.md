@@ -2,7 +2,7 @@
 
 A self-hosted quantitative-finance research terminal. The project is being developed as an independent implementation, using public provider specifications and a documented feature audit as references.
 
-> **Status: application foundation implemented; build not yet executed.** The repository now contains a minimal Qt application shell and a Qt Test smoke suite. This is not yet a functional finance terminal or provider integration.
+> **Status: foundation and provider-response contract implemented.** Linux CI with Qt 6.8.3 has successfully configured, built, and run the current Qt Test suite. This is not yet a functional finance terminal or live provider integration.
 
 ## Project goals
 
@@ -34,8 +34,9 @@ The initial application currently depends only on Qt Widgets. Python, database, 
 - [x] Minimal Qt application entry point.
 - [x] Main window shell with welcome content and ready status.
 - [x] Qt Test smoke cases for window identity, content, and status.
-- [ ] Compile and execute tests in a configured Qt 6.8 environment.
-- [ ] First data-backed feature vertical slice.
+- [x] Compile and execute tests in Linux CI with Qt 6.8.3.
+- [x] Provider response envelope decoder with deterministic tests.
+- [ ] First provider-backed data vertical slice (fixture first, live integration later).
 
 ## Development workflow
 
