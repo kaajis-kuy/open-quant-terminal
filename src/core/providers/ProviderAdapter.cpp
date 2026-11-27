@@ -9,10 +9,16 @@ bool AdapterResult::isValid() const {
         && dataset->validate().isEmpty();
     const bool hasValidMarketSeries = marketSeries.has_value()
         && marketSeries->validate().isEmpty();
+    const bool providerIdentityMatches = (!hasValidDataset
+            || dataset->providerId == rawResult.providerId)
+        && (!hasValidMarketSeries
+            || marketSeries->providerId == rawResult.providerId);
+
     return errors.isEmpty()
         && responseStatus != ResponseStatus::Failed
         && (hasValidDataset || hasValidMarketSeries)
         && !(dataset.has_value() && marketSeries.has_value())
+        && providerIdentityMatches
         && rawResult.validate().isEmpty();
 }
 
