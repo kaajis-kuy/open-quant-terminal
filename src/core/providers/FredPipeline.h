@@ -39,7 +39,8 @@ private:
                               const QString& errorMessage);
 
     FredClient* m_client = nullptr;
-    FredAdapter m_adapter;
+    ProviderAdapterRegistry m_registry;
+    oqt::services::ProviderNormalizationService m_normalizer;
     ProviderRequestContext m_context;
     bool m_busy = false;
 };
