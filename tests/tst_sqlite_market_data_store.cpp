@@ -67,6 +67,51 @@ private slots:
         QVERIFY(store.isOpen());
     }
 
+    void verifiesHealthyDatabaseIntegrity() {
+        SqliteMarketDataStore store(QStringLiteral(":memory:"));
+        QString error;
+        QVERIFY2(store.open(&error), qPrintable(error));
+        QVERIFY2(store.saveSeries(sampleSeries(), &error), qPrintable(error));
+        QVERIFY2(store.verifyIntegrity(&error), qPrintable(error));
+        QVERIFY(error.isEmpty());
+    }
+
+    void detectsForeignKeyViolationsDuringIntegrityVerification() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString databasePath = directory.filePath(QStringLiteral("foreign-key-check.sqlite"));
+
+        {
+            SqliteMarketDataStore store(databasePath);
+            QString error;
+            QVERIFY2(store.open(&error), qPrintable(error));
+        }
+
+        const QString connectionName = QStringLiteral("foreign-key-violation-seed");
+        {
+            QSqlDatabase database = QSqlDatabase::addDatabase(
+                QStringLiteral("QSQLITE"), connectionName);
+            database.setDatabaseName(databasePath);
+            QVERIFY(database.open());
+            QSqlQuery query(database);
+            QVERIFY(query.exec(QStringLiteral("PRAGMA foreign_keys = OFF")));
+            QVERIFY2(query.exec(QStringLiteral(
+                "INSERT INTO market_bars (provider_id,instrument_id,interval,timestamp_ms,"
+                "open,high,low,close,adjusted_close,volume) "
+                "VALUES ('orphan','equity.orphan','1d',1795737600000,10,12,9,11,NULL,NULL)")),
+                qPrintable(query.lastError().text()));
+            database.close();
+        }
+        QSqlDatabase::removeDatabase(connectionName);
+
+        SqliteMarketDataStore store(databasePath);
+        QString error;
+        QVERIFY2(store.open(&error), qPrintable(error));
+        QVERIFY(!store.verifyIntegrity(&error));
+        QVERIFY(error.contains(QStringLiteral("foreign-key violation")));
+        QVERIFY(error.contains(QStringLiteral("market_bars")));
+    }
+
     void roundTripsBarsAndProvenance() {
         SqliteMarketDataStore store(QStringLiteral(":memory:"));
         QString error;
