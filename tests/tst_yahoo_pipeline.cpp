@@ -102,6 +102,17 @@ private slots:
         QCOMPARE(*result.marketSeries->bars.at(0).volume, 1000.0);
         QCOMPARE(*result.marketSeries->bars.at(0).adjustedClose, 103.0);
         QVERIFY(result.rawResult.rawPayload.isObject());
+        QCOMPARE(result.rawResult.providerId, QStringLiteral("yahoo_finance"));
+        QCOMPARE(result.rawResult.operationId, QStringLiteral("historical_ohlcv"));
+        QCOMPARE(result.rawResult.requestId, QStringLiteral("yahoo-001"));
+        QVERIFY(result.rawResult.fetchedAt.isValid());
+        QCOMPARE(result.rawResult.fetchedAt.timeSpec(), Qt::UTC);
+        QVERIFY(result.marketSeries->provenance.retrievedAt.isValid());
+        QCOMPARE(result.marketSeries->provenance.retrievedAt.timeSpec(), Qt::UTC);
+        QCOMPARE(result.marketSeries->provenance.retrievedAt, result.rawResult.fetchedAt);
+        QVERIFY(result.marketSeries->provenance.sourceUrl.startsWith(QStringLiteral("https://")));
+        QCOMPARE(result.marketSeries->provenance.attributionId, QStringLiteral("Yahoo Finance"));
+        QCOMPARE(result.rawResult.responseSchemaVersion, QStringLiteral("1.0"));
         QVERIFY(result.rawResult.redactedRequestArguments.join(";")
                     .contains(QStringLiteral("symbol=AAPL")));
     }
