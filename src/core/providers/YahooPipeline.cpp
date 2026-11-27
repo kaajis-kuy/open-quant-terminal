@@ -73,8 +73,7 @@ void YahooPipeline::handleClientFinished(const QString& requestId,
     // Transport failures take precedence over a body that might look usable.
     if (!errorMessage.isEmpty()) {
         response.errorMessage = errorMessage;
-        response.status = response.hasData() ? ResponseStatus::Partial
-                                             : ResponseStatus::Failed;
+        response.status = ResponseStatus::Failed;
     }
 
     AdapterResult result = m_adapter.normalize(response, m_context);
