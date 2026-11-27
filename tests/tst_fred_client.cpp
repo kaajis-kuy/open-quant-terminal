@@ -2,6 +2,7 @@
 
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QDateTime>
 #include <QNetworkAccessManager>
 #include <QTcpServer>
 #include <QTcpSocket>
@@ -19,7 +20,7 @@ public:
         int status = 200;
         QByteArray body;
         int delayMs = 0;
-        int retryAfter = -1;
+        QByteArray retryAfter;
     };
 
     explicit MockFredServer(QObject* parent = nullptr) : QObject(parent) {
@@ -50,7 +51,7 @@ public:
                             + (reply.status == 200 ? "OK" : "Mock Error")
                             + "\r\nContent-Type: application/json\r\nConnection: close\r\n";
                         if (reply.retryAfter >= 0) {
-                            response += "Retry-After: " + QByteArray::number(reply.retryAfter) + "\r\n";
+                            response += "Retry-After: " + reply.retryAfter + "\r\n";
                         }
                         response += "Content-Length: " + QByteArray::number(reply.body.size())
                             + "\r\n\r\n" + reply.body;
@@ -174,7 +175,7 @@ private slots:
     void retriesRateLimitAndHonorsRetryAfter() {
         MockFredServer server;
         QVERIFY(server.listen());
-        server.enqueue({429, R"({"error":"rate limited"})", 0, 0});
+        server.enqueue({429, R"({"error":"rate limited"})", 0, QByteArrayLiteral("0")});
         server.enqueue({200, page(1, 0, {{QStringLiteral("2020-01-01"), QStringLiteral("1")}})});
         FredClient client(nullptr, nullptr, server.endpoint());
         QSignalSpy spy(&client, &FredClient::finished);
@@ -182,6 +183,50 @@ private slots:
         QTRY_COMPARE_WITH_TIMEOUT(spy.size(), 1, 7000);
         QCOMPARE(server.requestCount(), 2);
         QVERIFY(spy.takeFirst().at(3).toString().isEmpty());
+    }
+
+
+    void parsesHttpDateRetryAfter() {
+        MockFredServer server;
+        QVERIFY(server.listen());
+        const QByteArray retryAt = QDateTime::currentDateTimeUtc()
+            .addSecs(1).toString(Qt::RFC2822Date).toLatin1();
+        server.enqueue({429, R"({"error":"rate limited"})", 0, retryAt});
+        server.enqueue({200, page(1, 0, {{QStringLiteral("2020-01-01"), QStringLiteral("1")}})});
+        FredClient client(nullptr, nullptr, server.endpoint());
+        QSignalSpy spy(&client, &FredClient::finished);
+        QVERIFY(client.fetchObservations(request(), QStringLiteral("retry-http-date"), 1));
+        QTRY_COMPARE_WITH_TIMEOUT(spy.size(), 1, 5000);
+        QCOMPARE(server.requestCount(), 2);
+        QVERIFY(spy.takeFirst().at(3).toString().isEmpty());
+    }
+
+    void cancellationThenRestartIgnoresStaleReply() {
+        MockFredServer server;
+        QVERIFY(server.listen());
+        server.enqueue({200, page(1, 0, {{QStringLiteral("2020-01-01"), QStringLiteral("stale")}}), 500});
+        server.enqueue({200, page(1, 0, {{QStringLiteral("2020-04-01"), QStringLiteral("fresh")}})});
+        FredClient client(nullptr, nullptr, server.endpoint());
+        QSignalSpy spy(&client, &FredClient::finished);
+
+        QVERIFY(client.fetchObservations(request(), QStringLiteral("cancel-old"), 1));
+        client.cancel();
+        QVERIFY(client.fetchObservations(request(), QStringLiteral("new-request"), 1));
+
+        QTRY_COMPARE_WITH_TIMEOUT(spy.size(), 2, 5000);
+        const auto cancelled = spy.takeFirst();
+        QCOMPARE(cancelled.at(0).toString(), QStringLiteral("cancel-old"));
+        QCOMPARE(cancelled.at(3).toString(), QStringLiteral("FRED request cancelled"));
+
+        const auto completed = spy.takeFirst();
+        QCOMPARE(completed.at(0).toString(), QStringLiteral("new-request"));
+        QVERIFY(completed.at(3).toString().isEmpty());
+        const QJsonObject output = QJsonDocument::fromJson(completed.at(1).toByteArray()).object();
+        const QJsonArray rows = output.value(QStringLiteral("observations")).toArray();
+        QCOMPARE(rows.size(), 1);
+        QCOMPARE(rows.at(0).toObject().value(QStringLiteral("value")).toString(),
+                 QStringLiteral("fresh"));
+        QCOMPARE(server.requestCount(), 2);
     }
 
     void reportsHttpClientError() {
