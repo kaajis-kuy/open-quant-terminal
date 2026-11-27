@@ -9,6 +9,7 @@
 #include <QNetworkReply>
 #include <QObject>
 #include <QPointer>
+#include <QUrl>
 
 namespace oqt::providers {
 
@@ -18,7 +19,8 @@ class FredClient final : public QObject {
 
 public:
     explicit FredClient(QNetworkAccessManager* manager = nullptr,
-                        QObject* parent = nullptr);
+                        QObject* parent = nullptr,
+                        QUrl endpointOverride = {});
 
     [[nodiscard]] bool isBusy() const;
 
@@ -44,6 +46,7 @@ private:
     void finish(const QString& errorMessage = {});
 
     QNetworkAccessManager* m_manager = nullptr;
+    QUrl m_endpointOverride;
     QPointer<QNetworkReply> m_reply;
     FredObservationRequest m_request;
     QString m_requestId;
