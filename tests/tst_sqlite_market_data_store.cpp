@@ -479,7 +479,7 @@ private slots:
             QVERIFY(database.open());
             QSqlQuery query(database);
             const qint64 failingTimestamp = QDateTime::fromString(
-                QStringLiteral("2026-11-28T00:00:00.000Z"), Qt::ISODateWithMs)
+                QStringLiteral("2026-11-28T01:05:00.000Z"), Qt::ISODateWithMs)
                                                 .toMSecsSinceEpoch();
             const QString triggerSql = QStringLiteral(
                 "CREATE TRIGGER reject_replacement_bar BEFORE INSERT ON market_bars "
@@ -499,11 +499,17 @@ private slots:
             CanonicalMarketSeries replacement = original;
             replacement.providerSymbol = QStringLiteral("SHOULD_NOT_COMMIT");
             replacement.bars.clear();
-            CanonicalMarketBar replacementBar = original.bars.last();
-            replacementBar.timestamp = QDateTime::fromString(
+            const QDateTime replacementStart = QDateTime::fromString(
                 QStringLiteral("2026-11-28T00:00:00.000Z"), Qt::ISODateWithMs);
-            replacementBar.close = 999.0;
-            replacement.bars.append(replacementBar);
+            for (qsizetype i = 0; i < 70; ++i) {
+                CanonicalMarketBar replacementBar = original.bars.last();
+                replacementBar.timestamp = replacementStart.addSecs(i * 60);
+                replacementBar.open = 200.0 + static_cast<double>(i);
+                replacementBar.high = replacementBar.open + 2.0;
+                replacementBar.low = replacementBar.open - 2.0;
+                replacementBar.close = replacementBar.open + 1.0;
+                replacement.bars.append(replacementBar);
+            }
 
             QVERIFY(!store.saveSeries(replacement, &error));
             QVERIFY(!error.isEmpty());
@@ -741,6 +747,45 @@ private slots:
         }
         QSqlDatabase::removeDatabase(readerName);
         QSqlDatabase::removeDatabase(writerName);
+    }
+
+    void writesSeriesAcrossMultipleInsertBatches() {
+        SqliteMarketDataStore store(QStringLiteral(":memory:"));
+        QString error;
+        QVERIFY2(store.open(&error), qPrintable(error));
+
+        CanonicalMarketSeries source = sampleSeries();
+        source.bars.clear();
+        const QDateTime firstTimestamp = QDateTime::fromString(
+            QStringLiteral("2026-11-20T00:00:00.000Z"), Qt::ISODateWithMs);
+        constexpr qsizetype barCount = 125;
+        for (qsizetype i = 0; i < barCount; ++i) {
+            CanonicalMarketBar bar;
+            bar.timestamp = firstTimestamp.addSecs(i * 60);
+            bar.open = 100.0 + static_cast<double>(i);
+            bar.high = bar.open + 2.0;
+            bar.low = bar.open - 2.0;
+            bar.close = bar.open + 1.0;
+            if (i % 2 == 0) {
+                bar.adjustedClose = bar.close - 0.25;
+                bar.volume = static_cast<double>(i * 10);
+            }
+            source.bars.append(bar);
+        }
+        QVERIFY(source.validate().isEmpty());
+        QVERIFY2(store.saveSeries(source, &error), qPrintable(error));
+
+        const auto loaded = store.loadSeries(source.providerId, source.instrumentId,
+                                             source.interval, &error);
+        QVERIFY2(loaded.has_value(), qPrintable(error));
+        QCOMPARE(loaded->bars.size(), barCount);
+        QCOMPARE(loaded->bars.first().timestamp, firstTimestamp);
+        QCOMPARE(loaded->bars.last().timestamp, firstTimestamp.addSecs((barCount - 1) * 60));
+        QCOMPARE(loaded->bars.at(64).close, source.bars.at(64).close);
+        QCOMPARE(loaded->bars.at(124).close, source.bars.at(124).close);
+        QVERIFY(!loaded->bars.at(65).adjustedClose.has_value());
+        QVERIFY(!loaded->bars.at(65).volume.has_value());
+        QVERIFY(loaded->validate().isEmpty());
     }
 
     void rejectsInvalidSeriesWithoutWriting() {
