@@ -28,6 +28,8 @@ add_executable(open-quant-terminal
     src/core/data/MarketData.h
     src/core/storage/SqliteMarketDataStore.cpp
     src/core/storage/SqliteMarketDataStore.h
+    src/core/services/MarketDataIngestionService.cpp
+    src/core/services/MarketDataIngestionService.h
     src/core/providers/ProviderResponse.cpp
     src/core/providers/ProviderResponse.h
     src/core/providers/ProviderAdapter.cpp
@@ -150,6 +152,36 @@ if(OQT_BUILD_TESTS)
     )
 
     add_test(NAME tst_sqlite_market_data_store COMMAND tst_sqlite_market_data_store)
+
+    add_executable(tst_market_data_ingestion_service
+        tests/tst_market_data_ingestion_service.cpp
+        src/core/services/MarketDataIngestionService.cpp
+        src/core/services/MarketDataIngestionService.h
+        src/core/storage/SqliteMarketDataStore.cpp
+        src/core/storage/SqliteMarketDataStore.h
+        src/core/providers/ProviderAdapter.cpp
+        src/core/providers/ProviderAdapter.h
+        src/core/providers/ProviderResponse.cpp
+        src/core/providers/ProviderResponse.h
+        src/core/data/MarketData.cpp
+        src/core/data/MarketData.h
+        src/core/data/CanonicalData.cpp
+        src/core/data/CanonicalData.h
+    )
+
+    target_link_libraries(tst_market_data_ingestion_service
+        PRIVATE
+            Qt6::Test
+            Qt6::Core
+            Qt6::Sql
+    )
+
+    target_include_directories(tst_market_data_ingestion_service
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    add_test(NAME tst_market_data_ingestion_service COMMAND tst_market_data_ingestion_service)
 
     add_executable(tst_provider_response
         tests/tst_provider_response.cpp
