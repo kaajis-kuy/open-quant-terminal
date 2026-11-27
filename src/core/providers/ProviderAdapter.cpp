@@ -5,10 +5,14 @@
 namespace oqt::providers {
 
 bool AdapterResult::isValid() const {
+    const bool hasValidDataset = dataset.has_value()
+        && dataset->validate().isEmpty();
+    const bool hasValidMarketSeries = marketSeries.has_value()
+        && marketSeries->validate().isEmpty();
     return errors.isEmpty()
         && responseStatus != ResponseStatus::Failed
-        && dataset.has_value()
-        && dataset->validate().isEmpty()
+        && (hasValidDataset || hasValidMarketSeries)
+        && !(dataset.has_value() && marketSeries.has_value())
         && rawResult.validate().isEmpty();
 }
 
