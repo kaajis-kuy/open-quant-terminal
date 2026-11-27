@@ -14,7 +14,7 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(Qt6 6.8 REQUIRED COMPONENTS Widgets)
+find_package(Qt6 6.8 REQUIRED COMPONENTS Widgets Network)
 
 qt_standard_project_setup()
 
@@ -32,11 +32,14 @@ add_executable(open-quant-terminal
     src/core/providers/FredAdapter.h
     src/core/providers/FredRequestBuilder.cpp
     src/core/providers/FredRequestBuilder.h
+    src/core/providers/FredClient.cpp
+    src/core/providers/FredClient.h
 )
 
 target_link_libraries(open-quant-terminal
     PRIVATE
         Qt6::Widgets
+        Qt6::Network
 )
 
 target_include_directories(open-quant-terminal
@@ -173,6 +176,28 @@ if(OQT_BUILD_TESTS)
     )
 
     add_test(NAME tst_fred_request_builder COMMAND tst_fred_request_builder)
+
+    add_executable(tst_fred_client
+        tests/tst_fred_client.cpp
+        src/core/providers/FredClient.cpp
+        src/core/providers/FredClient.h
+        src/core/providers/FredRequestBuilder.cpp
+        src/core/providers/FredRequestBuilder.h
+    )
+
+    target_link_libraries(tst_fred_client
+        PRIVATE
+            Qt6::Test
+            Qt6::Core
+            Qt6::Network
+    )
+
+    target_include_directories(tst_fred_client
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    add_test(NAME tst_fred_client COMMAND tst_fred_client)
     set_tests_properties(tst_main_window PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     )
