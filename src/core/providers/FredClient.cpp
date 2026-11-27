@@ -129,7 +129,11 @@ void FredClient::handleReply(QNetworkReply* reply) {
     const int retryAfter = reply->rawHeader("Retry-After").toInt();
     reply->deleteLater();
 
-    if (httpStatus == 429 || httpStatus >= 500 || networkError != QNetworkReply::NoError) {
+    // Retry only explicitly transient HTTP statuses, or transport failures
+    // where no HTTP response status was received. Qt also sets a network error
+    // for HTTP 4xx responses, but those client errors must not be retried.
+    if (httpStatus == 429 || httpStatus >= 500
+        || (httpStatus == 0 && networkError != QNetworkReply::NoError)) {
         retryOrFinish(networkError == QNetworkReply::NoError
                           ? QStringLiteral("FRED HTTP %1").arg(httpStatus)
                           : networkErrorText,
@@ -139,6 +143,11 @@ void FredClient::handleReply(QNetworkReply* reply) {
 
     if (httpStatus < 200 || httpStatus >= 300) {
         finish(QStringLiteral("FRED HTTP %1").arg(httpStatus));
+        return;
+    }
+
+    if (networkError != QNetworkReply::NoError) {
+        retryOrFinish(networkErrorText, httpStatus, retryAfter);
         return;
     }
 
