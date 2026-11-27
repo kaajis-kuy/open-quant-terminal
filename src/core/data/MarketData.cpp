@@ -15,6 +15,8 @@ QStringList CanonicalMarketBar::validate() const {
     QStringList errors;
     if (!timestamp.isValid()) {
         errors.append(QStringLiteral("timestamp must be valid"));
+    } else if (timestamp.timeSpec() != Qt::UTC) {
+        errors.append(QStringLiteral("timestamp must be normalized to UTC"));
     }
     if (!finite(open) || !finite(high) || !finite(low) || !finite(close)) {
         errors.append(QStringLiteral("OHLC values must be finite"));
@@ -60,9 +62,9 @@ QStringList CanonicalMarketSeries::validate() const {
         for (const QString& error : barErrors) {
             errors.append(QStringLiteral("bars[%1]: %2").arg(index).arg(error));
         }
-        if (bar.timestamp.isValid()) {
+        if (bar.timestamp.isValid() && bar.timestamp.timeSpec() == Qt::UTC) {
             if (previousTimestamp.isValid()
-                && bar.timestamp.toUTC() <= previousTimestamp.toUTC()) {
+                && bar.timestamp <= previousTimestamp) {
                 errors.append(QStringLiteral("bars must be ordered by strictly increasing timestamp"));
                 break;
             }
