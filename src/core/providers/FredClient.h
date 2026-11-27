@@ -56,6 +56,7 @@ private:
     int m_pagesFetched = 0;
     int m_retryCount = 0;
     bool m_busy = false;
+    quint64 m_generation = 0;
     bool m_truncated = false;
     QString m_nextPageCursor;
 };
