@@ -176,6 +176,13 @@ bool SqliteMarketDataStore::saveSeries(
         setError(errorMessage, QStringLiteral("database is not open"));
         return false;
     }
+    // A valid query can return no candles even when the stored full series
+    // was non-empty. Represent the returned slice as an empty result.
+    if (series.bars.isEmpty()) {
+        series.quality.status = oqt::data::DataStatus::Empty;
+        series.quality.isPartial = false;
+    }
+
     const QStringList validationErrors = series.validate();
     if (!validationErrors.isEmpty()) {
         setError(errorMessage, validationErrors.join(QStringLiteral("; ")));
@@ -277,6 +284,32 @@ bool SqliteMarketDataStore::saveSeries(
 std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSeries(
     const QString& providerId, const QString& instrumentId, const QString& interval,
     QString* errorMessage) const {
+    return loadSeriesImpl(providerId, instrumentId, interval, std::nullopt, std::nullopt,
+                          errorMessage);
+}
+
+std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSeriesRange(
+    const QString& providerId, const QString& instrumentId, const QString& interval,
+    const QDateTime& startInclusive, const QDateTime& endExclusive,
+    QString* errorMessage) const {
+    if (!startInclusive.isValid() || !endExclusive.isValid()
+        || startInclusive.timeSpec() != Qt::UTC || endExclusive.timeSpec() != Qt::UTC) {
+        setError(errorMessage, QStringLiteral("range bounds must be valid UTC timestamps"));
+        return std::nullopt;
+    }
+    const qint64 startMs = startInclusive.toMSecsSinceEpoch();
+    const qint64 endMs = endExclusive.toMSecsSinceEpoch();
+    if (startMs >= endMs) {
+        setError(errorMessage, QStringLiteral("range start must be earlier than range end"));
+        return std::nullopt;
+    }
+    return loadSeriesImpl(providerId, instrumentId, interval, startMs, endMs, errorMessage);
+}
+
+std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSeriesImpl(
+    const QString& providerId, const QString& instrumentId, const QString& interval,
+    std::optional<qint64> startInclusiveMs, std::optional<qint64> endExclusiveMs,
+    QString* errorMessage) const {
     if (!isOpen()) {
         setError(errorMessage, QStringLiteral("database is not open"));
         return std::nullopt;
@@ -321,12 +354,22 @@ std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSerie
     series.quality.nextPageCursor = header.value(10).toString();
 
     QSqlQuery bars(m_database);
-    bars.prepare(QStringLiteral(
+    QString barsSql = QStringLiteral(
         "SELECT timestamp_ms,open,high,low,close,adjusted_close,volume FROM market_bars "
-        "WHERE provider_id=? AND instrument_id=? AND interval=? ORDER BY timestamp_ms ASC"));
+        "WHERE provider_id=? AND instrument_id=? AND interval=?");
+    if (startInclusiveMs.has_value()) {
+        barsSql += QStringLiteral(" AND timestamp_ms>=?");
+    }
+    if (endExclusiveMs.has_value()) {
+        barsSql += QStringLiteral(" AND timestamp_ms<?");
+    }
+    barsSql += QStringLiteral(" ORDER BY timestamp_ms ASC");
+    bars.prepare(barsSql);
     bars.addBindValue(providerId);
     bars.addBindValue(instrumentId);
     bars.addBindValue(interval);
+    if (startInclusiveMs.has_value()) bars.addBindValue(*startInclusiveMs);
+    if (endExclusiveMs.has_value()) bars.addBindValue(*endExclusiveMs);
     if (!bars.exec()) {
         setError(errorMessage, sqlError(bars));
         return std::nullopt;
