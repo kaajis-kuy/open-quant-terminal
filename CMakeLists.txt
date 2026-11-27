@@ -30,6 +30,8 @@ add_executable(open-quant-terminal
     src/core/providers/ProviderAdapter.h
     src/core/providers/FredAdapter.cpp
     src/core/providers/FredAdapter.h
+    src/core/providers/FredRequestBuilder.cpp
+    src/core/providers/FredRequestBuilder.h
 )
 
 target_link_libraries(open-quant-terminal
@@ -152,6 +154,25 @@ if(OQT_BUILD_TESTS)
     )
 
     add_test(NAME tst_fred_adapter COMMAND tst_fred_adapter)
+
+    add_executable(tst_fred_request_builder
+        tests/tst_fred_request_builder.cpp
+        src/core/providers/FredRequestBuilder.cpp
+        src/core/providers/FredRequestBuilder.h
+    )
+
+    target_link_libraries(tst_fred_request_builder
+        PRIVATE
+            Qt6::Test
+            Qt6::Core
+    )
+
+    target_include_directories(tst_fred_request_builder
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    add_test(NAME tst_fred_request_builder COMMAND tst_fred_request_builder)
     set_tests_properties(tst_main_window PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     )
