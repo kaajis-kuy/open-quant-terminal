@@ -81,9 +81,38 @@ bool SqliteMarketDataStore::isOpen() const {
 }
 
 bool SqliteMarketDataStore::initializeSchema(QString* errorMessage) {
-    QSqlQuery query(m_database);
+    constexpr int currentSchemaVersion = 1;
+
+    QSqlQuery foreignKeys(m_database);
+    if (!foreignKeys.exec(QStringLiteral("PRAGMA foreign_keys = ON"))) {
+        setError(errorMessage, sqlError(foreignKeys));
+        return false;
+    }
+
+    QSqlQuery versionQuery(m_database);
+    if (!versionQuery.exec(QStringLiteral("PRAGMA user_version")) || !versionQuery.next()) {
+        setError(errorMessage, sqlError(versionQuery));
+        return false;
+    }
+    const int schemaVersion = versionQuery.value(0).toInt();
+    if (schemaVersion > currentSchemaVersion) {
+        setError(errorMessage,
+                 QStringLiteral("database schema version %1 is newer than supported version %2")
+                     .arg(schemaVersion).arg(currentSchemaVersion));
+        return false;
+    }
+    if (schemaVersion == currentSchemaVersion) {
+        return true;
+    }
+
+    // Version 0 is the original unversioned schema. CREATE IF NOT EXISTS makes
+    // this migration safe for databases created by the pre-versioning release.
+    if (!m_database.transaction()) {
+        setError(errorMessage, m_database.lastError().text());
+        return false;
+    }
+
     const QStringList statements = {
-        QStringLiteral("PRAGMA foreign_keys = ON"),
         QStringLiteral("CREATE TABLE IF NOT EXISTS market_series ("
                        "provider_id TEXT NOT NULL,"
                        "instrument_id TEXT NOT NULL,"
@@ -117,11 +146,24 @@ bool SqliteMarketDataStore::initializeSchema(QString* errorMessage) {
                        "ON DELETE CASCADE)")
     };
 
+    QSqlQuery query(m_database);
     for (const QString& statement : statements) {
         if (!query.exec(statement)) {
             setError(errorMessage, sqlError(query));
+            m_database.rollback();
             return false;
         }
+    }
+
+    if (!query.exec(QStringLiteral("PRAGMA user_version = 1"))) {
+        setError(errorMessage, sqlError(query));
+        m_database.rollback();
+        return false;
+    }
+    if (!m_database.commit()) {
+        setError(errorMessage, m_database.lastError().text());
+        m_database.rollback();
+        return false;
     }
     return true;
 }
