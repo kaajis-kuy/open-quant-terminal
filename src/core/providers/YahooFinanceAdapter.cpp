@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace oqt::providers {
 namespace {
@@ -183,14 +184,24 @@ AdapterResult YahooFinanceAdapter::normalize(
     const qsizetype count = timestamps.size();
     const bool arraysMatch = opens.size() == count && highs.size() == count
         && lows.size() == count && closes.size() == count;
+    const bool optionalArraysMatch = (volumes.isEmpty() || volumes.size() == count)
+        && (adjustedCloses.isEmpty() || adjustedCloses.size() == count);
     if (!arraysMatch) {
         series.quality.isPartial = true;
         series.quality.warnings.append(QStringLiteral("Yahoo Finance OHLC arrays have inconsistent lengths"));
+    }
+    if (!optionalArraysMatch) {
+        series.quality.isPartial = true;
+        series.quality.warnings.append(QStringLiteral("Yahoo Finance optional indicator arrays have inconsistent lengths"));
     }
 
     for (qsizetype index = 0; index < count; ++index) {
         const QJsonValue timestampValue = timestamps.at(index);
         if (!timestampValue.isDouble()
+            || !std::isfinite(timestampValue.toDouble())
+            || std::floor(timestampValue.toDouble()) != timestampValue.toDouble()
+            || timestampValue.toDouble() < static_cast<double>(std::numeric_limits<qint64>::min())
+            || timestampValue.toDouble() > static_cast<double>(std::numeric_limits<qint64>::max())
             || index >= opens.size() || index >= highs.size()
             || index >= lows.size() || index >= closes.size()) {
             ++rejectedRows;
@@ -209,6 +220,10 @@ AdapterResult YahooFinanceAdapter::normalize(
         oqt::data::CanonicalMarketBar bar;
         bar.timestamp = QDateTime::fromSecsSinceEpoch(
             static_cast<qint64>(timestampValue.toDouble()), Qt::UTC);
+        if (!bar.timestamp.isValid()) {
+            ++rejectedRows;
+            continue;
+        }
         bar.open = *open;
         bar.high = *high;
         bar.low = *low;
@@ -235,7 +250,7 @@ AdapterResult YahooFinanceAdapter::normalize(
         series.bars.append(std::move(bar));
     }
 
-    if (rejectedRows > 0 || !arraysMatch) {
+    if (rejectedRows > 0 || !arraysMatch || !optionalArraysMatch) {
         series.quality.isPartial = true;
         series.quality.status = oqt::data::DataStatus::Partial;
         series.quality.warnings.append(
