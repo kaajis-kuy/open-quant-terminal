@@ -3,6 +3,8 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QFile>
+#include <QFileInfo>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QTimeZone>
@@ -158,6 +160,45 @@ bool SqliteMarketDataStore::verifyIntegrity(QString* errorMessage) const {
                                     .arg(foreignKeys.value(2).toString())
                                     .arg(foreignKeys.value(3).toString());
         setError(errorMessage, message);
+        return false;
+    }
+    return true;
+}
+
+bool SqliteMarketDataStore::backupTo(const QString& destinationPath,
+                                        QString* errorMessage) const {
+    if (!isOpen()) {
+        setError(errorMessage, QStringLiteral("database is not open"));
+        return false;
+    }
+
+    const QString destination = destinationPath.trimmed();
+    if (destination.isEmpty()) {
+        setError(errorMessage, QStringLiteral("backup destination path is required"));
+        return false;
+    }
+
+    const QString sourceAbsolute = QFileInfo(m_databasePath).absoluteFilePath();
+    const QString destinationAbsolute = QFileInfo(destination).absoluteFilePath();
+    if (sourceAbsolute == destinationAbsolute) {
+        setError(errorMessage, QStringLiteral("backup destination must differ from source database"));
+        return false;
+    }
+    if (QFile::exists(destination)) {
+        setError(errorMessage, QStringLiteral("backup destination already exists"));
+        return false;
+    }
+
+    // VACUUM INTO reads a consistent snapshot, including committed WAL data,
+    // and writes a compact standalone database without copying live WAL files.
+    QSqlQuery backup(m_database);
+    if (!backup.prepare(QStringLiteral("VACUUM INTO ?"))) {
+        setError(errorMessage, sqlError(backup));
+        return false;
+    }
+    backup.addBindValue(destinationAbsolute);
+    if (!backup.exec()) {
+        setError(errorMessage, sqlError(backup));
         return false;
     }
     return true;
