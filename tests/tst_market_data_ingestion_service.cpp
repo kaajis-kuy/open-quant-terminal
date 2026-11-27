@@ -94,6 +94,7 @@ private slots:
         newest.timestamp = QDateTime::fromString(
             QStringLiteral("2026-01-03T00:00:00Z"), Qt::ISODate);
         newest.close = 17.0;
+        newest.high = qMax(newest.high, newest.close);
         update.bars = {update.bars.first(), newest};
 
         services::MarketDataIngestionService service(store);
