@@ -8,6 +8,8 @@
 #include <QTimeZone>
 #include <QUuid>
 
+#include <limits>
+
 namespace oqt::storage {
 namespace {
 
@@ -301,6 +303,10 @@ std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSerie
         setError(errorMessage, QStringLiteral("maxBars cannot be negative"));
         return std::nullopt;
     }
+    if (maxBars == std::numeric_limits<qsizetype>::max()) {
+        setError(errorMessage, QStringLiteral("maxBars is too large"));
+        return std::nullopt;
+    }
     return loadSeriesImpl(providerId, instrumentId, interval, startMs, endMs,
                           maxBars, errorMessage);
 }
@@ -372,7 +378,7 @@ std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSerie
     bars.addBindValue(interval);
     if (startInclusiveMs.has_value()) bars.addBindValue(*startInclusiveMs);
     if (endExclusiveMs.has_value()) bars.addBindValue(*endExclusiveMs);
-    if (maxBars > 0) bars.addBindValue(maxBars);
+    if (maxBars > 0) bars.addBindValue(maxBars + 1);
     if (!bars.exec()) {
         setError(errorMessage, sqlError(bars));
         return std::nullopt;
@@ -387,6 +393,17 @@ std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSerie
         if (!bars.isNull(5)) bar.adjustedClose = bars.value(5).toDouble();
         if (!bars.isNull(6)) bar.volume = bars.value(6).toDouble();
         series.bars.append(std::move(bar));
+    }
+
+    // Read one extra row so truncation is reported only when more matching
+    // candles actually exist beyond the requested cap.
+    if (maxBars > 0 && series.bars.size() > maxBars) {
+        series.bars.removeLast();
+        series.quality.status = oqt::data::DataStatus::Partial;
+        series.quality.isPartial = true;
+        series.quality.isTruncated = true;
+        series.quality.warnings.append(
+            QStringLiteral("OHLCV range result truncated at maxBars=%1").arg(maxBars));
     }
 
     // A valid query can return no candles even when the stored full series
