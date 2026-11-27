@@ -28,8 +28,23 @@ public:
         const QString& instrumentId,
         const QString& interval,
         QString* errorMessage = nullptr) const;
+    // Returns bars in the half-open UTC interval [startInclusive, endExclusive).
+    [[nodiscard]] std::optional<oqt::data::CanonicalMarketSeries> loadSeriesRange(
+        const QString& providerId,
+        const QString& instrumentId,
+        const QString& interval,
+        const QDateTime& startInclusive,
+        const QDateTime& endExclusive,
+        QString* errorMessage = nullptr) const;
 
 private:
+    [[nodiscard]] std::optional<oqt::data::CanonicalMarketSeries> loadSeriesImpl(
+        const QString& providerId,
+        const QString& instrumentId,
+        const QString& interval,
+        std::optional<qint64> startInclusiveMs,
+        std::optional<qint64> endExclusiveMs,
+        QString* errorMessage) const;
     [[nodiscard]] bool initializeSchema(QString* errorMessage);
 
     QString m_databasePath;
