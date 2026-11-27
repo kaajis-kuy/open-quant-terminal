@@ -4,6 +4,7 @@
 #include "core/providers/YahooFinanceAdapter.h"
 
 #include <QObject>
+#include <QPointer>
 
 namespace oqt::providers {
 
@@ -33,7 +34,7 @@ private:
                               int httpStatus,
                               const QString& errorMessage);
 
-    YahooClient* m_client = nullptr;
+    QPointer<YahooClient> m_client;
     YahooFinanceAdapter m_adapter;
     ProviderRequestContext m_context;
     bool m_busy = false;
