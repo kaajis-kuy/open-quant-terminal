@@ -149,6 +149,77 @@ private slots:
         QCOMPARE(result.marketSeries->quality.nextPageCursor, QStringLiteral("period2=1796000000"));
     }
 
+    void rejectsFractionalAndOutOfRangeTimestamps() {
+        YahooFinanceAdapter adapter;
+        const auto fractional = responseFrom(R"({
+            "chart":{"result":[{
+                "meta":{"symbol":"AAPL"},
+                "timestamp":[1795737600.5],
+                "indicators":{"quote":[{
+                    "open":[10.0],"high":[12.0],"low":[9.0],"close":[11.0]
+                }]}
+            }],"error":null}
+        })");
+        const auto fractionalResult = adapter.normalize(fractional, yahooContext());
+        QVERIFY(fractionalResult.isValid());
+        QVERIFY(fractionalResult.marketSeries->bars.isEmpty());
+        QCOMPARE(fractionalResult.marketSeries->quality.status, oqt::data::DataStatus::Partial);
+
+        auto context = yahooContext();
+        const auto outOfRange = responseFrom(R"({
+            "chart":{"result":[{
+                "meta":{"symbol":"AAPL"},
+                "timestamp":[1e30],
+                "indicators":{"quote":[{
+                    "open":[10.0],"high":[12.0],"low":[9.0],"close":[11.0]
+                }]}
+            }],"error":null}
+        })");
+        const auto outOfRangeResult = adapter.normalize(outOfRange, context);
+        QVERIFY(outOfRangeResult.isValid());
+        QVERIFY(outOfRangeResult.marketSeries->bars.isEmpty());
+        QCOMPARE(outOfRangeResult.marketSeries->quality.status, oqt::data::DataStatus::Partial);
+    }
+
+    void marksShortOptionalIndicatorArraysPartial() {
+        YahooFinanceAdapter adapter;
+        const auto response = responseFrom(R"({
+            "chart":{"result":[{
+                "meta":{"symbol":"AAPL"},
+                "timestamp":[1795737600,1795824000],
+                "indicators":{"quote":[{
+                    "open":[10.0,11.0],"high":[12.0,13.0],
+                    "low":[9.0,10.0],"close":[11.0,12.0],
+                    "volume":[100]
+                }],"adjclose":[{"adjclose":[10.5]}]}
+            }],"error":null}
+        })");
+        const auto result = adapter.normalize(response, yahooContext());
+        QVERIFY2(result.errors.isEmpty(), qPrintable(result.errors.join("; ")));
+        QVERIFY(result.isValid());
+        QCOMPARE(result.marketSeries->bars.size(), qsizetype(2));
+        QCOMPARE(result.marketSeries->quality.status, oqt::data::DataStatus::Partial);
+        QVERIFY(result.marketSeries->quality.isPartial);
+        QCOMPARE(result.marketSeries->quality.missingValueCounts.value(QStringLiteral("volume")), qsizetype(1));
+    }
+
+    void rejectsUnorderedProviderTimestampsAsPartial() {
+        YahooFinanceAdapter adapter;
+        const auto response = responseFrom(R"({
+            "chart":{"result":[{
+                "meta":{"symbol":"AAPL"},
+                "timestamp":[1795824000,1795737600],
+                "indicators":{"quote":[{
+                    "open":[10.0,11.0],"high":[12.0,13.0],
+                    "low":[9.0,10.0],"close":[11.0,12.0]
+                }]}
+            }],"error":null}
+        })");
+        const auto result = adapter.normalize(response, yahooContext());
+        QVERIFY(!result.errors.isEmpty());
+        QVERIFY(result.marketSeries.has_value());
+    }
+
     void redactsSensitiveRequestArguments() {
         YahooFinanceAdapter adapter;
         auto context = yahooContext();
