@@ -63,11 +63,17 @@ void FredClient::cancel() {
     if (!m_busy) {
         return;
     }
-    if (m_reply) {
-        m_reply->abort();
-    } else {
-        finish(QStringLiteral("FRED request cancelled"));
+    const QString requestId = m_requestId;
+    const int pagesFetched = m_pagesFetched;
+    QPointer<QNetworkReply> reply = m_reply;
+    m_busy = false;
+    m_reply = nullptr;
+    m_request.apiKey.clear();
+    m_requestId.clear();
+    if (reply) {
+        reply->abort();
     }
+    emit finished(requestId, {}, pagesFetched, QStringLiteral("FRED request cancelled"));
 }
 
 void FredClient::requestCurrentPage() {
@@ -158,9 +164,12 @@ void FredClient::handleReply(QNetworkReply* reply) {
 
     const qint64 nextOffset = m_request.offset + m_observations.size();
     const bool hasMoreByCount = m_totalCount >= 0 && nextOffset < m_totalCount;
-    const bool pageMayBeFull = rows.size() >= m_request.limit;
 
-    if (!hasMoreByCount || !pageMayBeFull) {
+    if (!hasMoreByCount || rows.isEmpty()) {
+        if (hasMoreByCount && rows.isEmpty()) {
+            m_truncated = true;
+            m_nextPageCursor = QStringLiteral("offset=%1").arg(nextOffset);
+        }
         finish();
         return;
     }
