@@ -99,6 +99,90 @@ private slots:
         QVERIFY(loaded->validate().isEmpty());
     }
 
+    void loadsBarsWithinHalfOpenUtcRange() {
+        SqliteMarketDataStore store(QStringLiteral(":memory:"));
+        QString error;
+        QVERIFY2(store.open(&error), qPrintable(error));
+        const CanonicalMarketSeries source = sampleSeries();
+        QVERIFY2(store.saveSeries(source, &error), qPrintable(error));
+
+        const QDateTime start = QDateTime::fromString(
+            QStringLiteral("2026-11-26T00:00:00.000Z"), Qt::ISODateWithMs);
+        const QDateTime middle = QDateTime::fromString(
+            QStringLiteral("2026-11-27T00:00:00.000Z"), Qt::ISODateWithMs);
+        const QDateTime end = QDateTime::fromString(
+            QStringLiteral("2026-11-28T00:00:00.000Z"), Qt::ISODateWithMs);
+
+        const auto firstDay = store.loadSeriesRange(
+            source.providerId, source.instrumentId, source.interval, start, middle, &error);
+        QVERIFY2(firstDay.has_value(), qPrintable(error));
+        QCOMPARE(firstDay->bars.size(), qsizetype(1));
+        QCOMPARE(firstDay->bars.first().timestamp, start);
+        QCOMPARE(firstDay->bars.first().close, 103.0);
+        QCOMPARE(firstDay->providerSymbol, source.providerSymbol);
+        QCOMPARE(firstDay->provenance.attributionId, source.provenance.attributionId);
+        QVERIFY(firstDay->validate().isEmpty());
+
+        const auto secondDay = store.loadSeriesRange(
+            source.providerId, source.instrumentId, source.interval, middle, end, &error);
+        QVERIFY2(secondDay.has_value(), qPrintable(error));
+        QCOMPARE(secondDay->bars.size(), qsizetype(1));
+        QCOMPARE(secondDay->bars.first().timestamp, middle);
+        QCOMPARE(secondDay->bars.first().close, 106.0);
+        QVERIFY(!secondDay->bars.first().volume.has_value());
+        QVERIFY(secondDay->validate().isEmpty());
+    }
+
+    void returnsValidEmptySeriesForRangeWithoutBars() {
+        SqliteMarketDataStore store(QStringLiteral(":memory:"));
+        QString error;
+        QVERIFY2(store.open(&error), qPrintable(error));
+        const CanonicalMarketSeries source = sampleSeries();
+        QVERIFY2(store.saveSeries(source, &error), qPrintable(error));
+
+        const QDateTime start = QDateTime::fromString(
+            QStringLiteral("2026-11-28T00:00:00.000Z"), Qt::ISODateWithMs);
+        const QDateTime end = QDateTime::fromString(
+            QStringLiteral("2026-11-29T00:00:00.000Z"), Qt::ISODateWithMs);
+        const auto empty = store.loadSeriesRange(
+            source.providerId, source.instrumentId, source.interval, start, end, &error);
+
+        QVERIFY2(empty.has_value(), qPrintable(error));
+        QVERIFY(empty->bars.isEmpty());
+        QCOMPARE(empty->quality.status, DataStatus::Empty);
+        QVERIFY(!empty->quality.isPartial);
+        QVERIFY(empty->validate().isEmpty());
+    }
+
+    void rejectsInvalidOhlcvRangeBounds() {
+        SqliteMarketDataStore store(QStringLiteral(":memory:"));
+        QString error;
+        QVERIFY2(store.open(&error), qPrintable(error));
+
+        const QDateTime start = QDateTime::fromString(
+            QStringLiteral("2026-11-26T00:00:00.000Z"), Qt::ISODateWithMs);
+        const QDateTime end = QDateTime::fromString(
+            QStringLiteral("2026-11-28T00:00:00.000Z"), Qt::ISODateWithMs);
+        const QDateTime localTime(QDate(2026, 11, 26), QTime(0, 0), Qt::LocalTime);
+
+        QVERIFY(!store.loadSeriesRange(QStringLiteral("yahoo_finance"),
+                                       QStringLiteral("equity.aapl"), QStringLiteral("1d"),
+                                       QDateTime(), end, &error).has_value());
+        QVERIFY(error.contains(QStringLiteral("valid UTC")));
+        error.clear();
+
+        QVERIFY(!store.loadSeriesRange(QStringLiteral("yahoo_finance"),
+                                       QStringLiteral("equity.aapl"), QStringLiteral("1d"),
+                                       localTime, end, &error).has_value());
+        QVERIFY(error.contains(QStringLiteral("valid UTC")));
+        error.clear();
+
+        QVERIFY(!store.loadSeriesRange(QStringLiteral("yahoo_finance"),
+                                       QStringLiteral("equity.aapl"), QStringLiteral("1d"),
+                                       end, start, &error).has_value());
+        QVERIFY(error.contains(QStringLiteral("earlier")));
+    }
+
     void replacingSeriesRemovesOldBarsAtomically() {
         SqliteMarketDataStore store(QStringLiteral(":memory:"));
         QString error;
