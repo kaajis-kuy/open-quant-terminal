@@ -210,6 +210,10 @@ private slots:
         QSignalSpy spy(&client, &FredClient::finished);
 
         QVERIFY(client.fetchObservations(request(), QStringLiteral("cancel-old"), 1));
+        // Ensure the first request reached the mock server before aborting it;
+        // otherwise the second request could legitimately consume the first
+        // queued response and the test would not exercise a stale completion.
+        QTRY_COMPARE_WITH_TIMEOUT(server.requestCount(), 1, 2000);
         client.cancel();
         QVERIFY(client.fetchObservations(request(), QStringLiteral("new-request"), 1));
 
