@@ -22,6 +22,8 @@ add_executable(open-quant-terminal
     src/main.cpp
     src/app/MainWindow.cpp
     src/app/MainWindow.h
+    src/core/data/CanonicalData.cpp
+    src/core/data/CanonicalData.h
 )
 
 target_link_libraries(open-quant-terminal
@@ -58,6 +60,25 @@ if(OQT_BUILD_TESTS)
     )
 
     add_test(NAME tst_main_window COMMAND tst_main_window)
+
+    add_executable(tst_canonical_data
+        tests/tst_canonical_data.cpp
+        src/core/data/CanonicalData.cpp
+        src/core/data/CanonicalData.h
+    )
+
+    target_link_libraries(tst_canonical_data
+        PRIVATE
+            Qt6::Test
+            Qt6::Core
+    )
+
+    target_include_directories(tst_canonical_data
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    add_test(NAME tst_canonical_data COMMAND tst_canonical_data)
     set_tests_properties(tst_main_window PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     )
