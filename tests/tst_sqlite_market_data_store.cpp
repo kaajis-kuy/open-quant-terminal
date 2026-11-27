@@ -157,6 +157,74 @@ private slots:
         QVERIFY(error.contains(QStringLiteral("market_bars")));
     }
 
+    void upsertsIncrementalBarsWithoutDeletingHistory() {
+        SqliteMarketDataStore store(QStringLiteral(":memory:"));
+        QString error;
+        QVERIFY2(store.open(&error), qPrintable(error));
+
+        const CanonicalMarketSeries original = sampleSeries();
+        QVERIFY2(store.saveSeries(original, &error), qPrintable(error));
+
+        CanonicalMarketSeries update = original;
+        update.provenance.retrievedAt = QDateTime::fromString(
+            QStringLiteral("2026-11-29T00:00:00.000Z"), Qt::ISODateWithMs);
+        update.quality.status = DataStatus::Complete;
+        update.quality.isPartial = false;
+        update.quality.missingValueCounts.clear();
+        update.quality.warnings.clear();
+        update.bars.clear();
+
+        CanonicalMarketBar corrected;
+        corrected.timestamp = original.bars.at(1).timestamp;
+        corrected.open = 103.0;
+        corrected.high = 109.0;
+        corrected.low = 102.0;
+        corrected.close = 108.0;
+        corrected.adjustedClose = 107.5;
+        corrected.volume = 1500.0;
+        update.bars.append(corrected);
+
+        CanonicalMarketBar newest;
+        newest.timestamp = QDateTime::fromString(
+            QStringLiteral("2026-11-28T00:00:00.000Z"), Qt::ISODateWithMs);
+        newest.open = 108.0;
+        newest.high = 111.0;
+        newest.low = 107.0;
+        newest.close = 110.0;
+        newest.volume = 1800.0;
+        update.bars.append(newest);
+
+        QVERIFY(update.validate().isEmpty());
+        QVERIFY2(store.upsertSeries(update, &error), qPrintable(error));
+
+        const auto merged = store.loadSeries(original.providerId, original.instrumentId,
+                                             original.interval, &error);
+        QVERIFY2(merged.has_value(), qPrintable(error));
+        QCOMPARE(merged->bars.size(), qsizetype(3));
+        QCOMPARE(merged->bars.at(0).timestamp, original.bars.at(0).timestamp);
+        QCOMPARE(merged->bars.at(0).close, original.bars.at(0).close);
+        QCOMPARE(merged->bars.at(1).timestamp, corrected.timestamp);
+        QCOMPARE(merged->bars.at(1).close, 108.0);
+        QCOMPARE(merged->bars.at(1).volume, std::optional<double>(1500.0));
+        QCOMPARE(merged->bars.at(2).timestamp, newest.timestamp);
+        QCOMPARE(merged->bars.at(2).close, 110.0);
+        QVERIFY(!merged->bars.at(2).adjustedClose.has_value());
+        QCOMPARE(merged->provenance.retrievedAt, update.provenance.retrievedAt);
+        QCOMPARE(merged->quality.status, DataStatus::Complete);
+        QVERIFY(merged->validate().isEmpty());
+    }
+
+    void rejectsInvalidIncrementalSeriesWithoutWriting() {
+        SqliteMarketDataStore store(QStringLiteral(":memory:"));
+        QString error;
+        QVERIFY2(store.open(&error), qPrintable(error));
+        CanonicalMarketSeries invalid;
+        QVERIFY(!store.upsertSeries(invalid, &error));
+        QVERIFY(!error.isEmpty());
+        QVERIFY(!store.loadSeries(QStringLiteral("missing"), QStringLiteral("missing"),
+                                  QStringLiteral("1d"), nullptr).has_value());
+    }
+
     void roundTripsBarsAndProvenance() {
         SqliteMarketDataStore store(QStringLiteral(":memory:"));
         QString error;
