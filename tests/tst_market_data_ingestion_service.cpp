@@ -26,12 +26,14 @@ data::CanonicalMarketSeries makeSeries(double firstClose = 11.0,
     first.high = 12.0;
     first.low = 9.0;
     first.close = firstClose;
+    first.high = qMax(first.high, firstClose);
     first.volume = 100.0;
 
     data::CanonicalMarketBar second = first;
     second.timestamp = QDateTime::fromString(
         QStringLiteral("2026-01-02T00:00:00Z"), Qt::ISODate);
     second.close = secondClose;
+    second.high = qMax(second.high, secondClose);
     second.volume = 120.0;
 
     series.bars = {first, second};
