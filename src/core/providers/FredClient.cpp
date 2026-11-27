@@ -177,7 +177,11 @@ void FredClient::handleReply(QNetworkReply* reply) {
     if (m_totalCount < 0) {
         m_totalCount = root.value(QStringLiteral("count")).toVariant().toLongLong();
     }
-    m_observations.append(rows);
+    // Append each observation value; appending the array itself would nest
+    // page arrays and make pagination offsets/counts incorrect.
+    for (const QJsonValue& row : rows) {
+        m_observations.append(row);
+    }
     ++m_pagesFetched;
     m_retryCount = 0;
 
