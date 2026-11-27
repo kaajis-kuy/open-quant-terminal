@@ -21,7 +21,7 @@ bool YahooPipeline::isBusy() const {
 bool YahooPipeline::fetchChart(YahooChartRequest request,
                                QString datasetId,
                                QString requestId) {
-    if (m_busy || datasetId.trimmed().isEmpty() || requestId.trimmed().isEmpty()) {
+    if (!m_client || m_busy || datasetId.trimmed().isEmpty() || requestId.trimmed().isEmpty()) {
         return false;
     }
 
@@ -55,7 +55,7 @@ bool YahooPipeline::fetchChart(YahooChartRequest request,
 }
 
 void YahooPipeline::cancel() {
-    if (m_busy) {
+    if (m_busy && m_client) {
         m_client->cancel();
     }
 }
@@ -64,15 +64,20 @@ void YahooPipeline::handleClientFinished(const QString& requestId,
                                          const QByteArray& payload,
                                          int httpStatus,
                                          const QString& errorMessage) {
-    Q_UNUSED(httpStatus);
     if (!m_busy || requestId != m_context.requestId) {
         return;
     }
 
     ProviderResponse response = ProviderResponse::decode(payload);
     // Transport failures take precedence over a body that might look usable.
-    if (!errorMessage.isEmpty()) {
-        response.errorMessage = errorMessage;
+    QString transportError = errorMessage;
+    if ((httpStatus < 200 || httpStatus >= 300) && transportError.isEmpty()) {
+        transportError = httpStatus == 0
+            ? QStringLiteral("Yahoo Finance request completed without an HTTP status")
+            : QStringLiteral("Yahoo Finance HTTP %1").arg(httpStatus);
+    }
+    if (!transportError.isEmpty()) {
+        response.errorMessage = transportError;
         response.status = ResponseStatus::Failed;
     }
 
