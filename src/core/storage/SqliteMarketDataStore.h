@@ -35,7 +35,8 @@ public:
         const QString& interval,
         const QDateTime& startInclusive,
         const QDateTime& endExclusive,
-        QString* errorMessage = nullptr) const;
+        QString* errorMessage = nullptr,
+        qsizetype maxBars = 0) const;
 
 private:
     [[nodiscard]] std::optional<oqt::data::CanonicalMarketSeries> loadSeriesImpl(
@@ -44,6 +45,7 @@ private:
         const QString& interval,
         std::optional<qint64> startInclusiveMs,
         std::optional<qint64> endExclusiveMs,
+        qsizetype maxBars,
         QString* errorMessage) const;
     [[nodiscard]] bool initializeSchema(QString* errorMessage);
 
