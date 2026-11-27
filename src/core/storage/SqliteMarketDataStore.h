@@ -28,6 +28,9 @@ public:
                                  QString* errorMessage = nullptr) const;
     [[nodiscard]] bool saveSeries(const oqt::data::CanonicalMarketSeries& series,
                                   QString* errorMessage = nullptr);
+    // Inserts or updates supplied candles without deleting older stored bars.
+    [[nodiscard]] bool upsertSeries(const oqt::data::CanonicalMarketSeries& series,
+                                    QString* errorMessage = nullptr);
     [[nodiscard]] std::optional<oqt::data::CanonicalMarketSeries> loadSeries(
         const QString& providerId,
         const QString& instrumentId,
