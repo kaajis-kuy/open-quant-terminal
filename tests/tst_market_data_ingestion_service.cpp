@@ -126,6 +126,27 @@ private slots:
         QVERIFY(error.contains(QStringLiteral("invalid")));
     }
 
+    void rejectsProviderIdentityMismatchWithoutWriting() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        storage::SqliteMarketDataStore store(
+            directory.filePath(QStringLiteral("market.sqlite")));
+        QVERIFY(store.open());
+
+        auto result = makeResult(makeSeries());
+        result.rawResult.providerId = QStringLiteral("different_provider");
+
+        services::MarketDataIngestionService service(store);
+        QString error;
+        QVERIFY(!service.persist(result, services::MarketDataWriteMode::Replace, &error));
+        QVERIFY(error.contains(QStringLiteral("invalid")));
+
+        const auto loaded = store.loadSeries(
+            QStringLiteral("test_provider"), QStringLiteral("asset.test"),
+            QStringLiteral("1d"), &error);
+        QVERIFY2(!loaded.has_value(), qPrintable(error));
+    }
+
     void rejectsScalarDatasetResult() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
