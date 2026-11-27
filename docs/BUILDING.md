@@ -8,7 +8,7 @@
 - Qt Test module when building tests
 - Ninja is recommended but not required
 
-The exact compiler and Qt patch versions will be pinned when CI is introduced.
+CI currently verifies Linux with Qt 6.8.3. Other operating systems and Qt patch versions have not yet been verified.
 
 ## Configure
 
@@ -38,4 +38,4 @@ The initial smoke test uses Qt's offscreen platform and does not require a displ
 
 ## Current scope
 
-The first target is intentionally small: launch the Qt application shell and verify its initial identity, welcome content, and ready status. No provider API, database, Python runtime, or network dependency is required yet.
+The current targets include the Qt application shell, canonical data-contract validation, and provider-response envelope decoding. Tests use deterministic JSON fixtures and do not require live provider credentials or network access. The first complete provider-to-domain vertical slice remains pending.
