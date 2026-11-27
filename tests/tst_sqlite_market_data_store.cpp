@@ -4,6 +4,8 @@
 
 #include <QFile>
 #include <QTemporaryDir>
+#include <QSqlDatabase>
+#include <QSqlQuery>
 
 using namespace oqt::data;
 using oqt::storage::SqliteMarketDataStore;
@@ -193,6 +195,125 @@ private slots:
         error.clear();
         QVERIFY2(store.open(&error), qPrintable(error));
         QVERIFY(store.isOpen());
+    }
+
+
+    void initializesSchemaVersionForNewDatabase() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString databasePath = directory.filePath(QStringLiteral("versioned.sqlite"));
+        {
+            SqliteMarketDataStore store(databasePath);
+            QString error;
+            QVERIFY2(store.open(&error), qPrintable(error));
+        }
+
+        const QString connectionName = QStringLiteral("schema-version-check");
+        {
+            QSqlDatabase database = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),
+                                                               connectionName);
+            database.setDatabaseName(databasePath);
+            QVERIFY(database.open());
+            QSqlQuery query(database);
+            QVERIFY(query.exec(QStringLiteral("PRAGMA user_version")));
+            QVERIFY(query.next());
+            QCOMPARE(query.value(0).toInt(), 1);
+            database.close();
+        }
+        QSqlDatabase::removeDatabase(connectionName);
+    }
+
+    void migratesUnversionedDatabaseWithoutLosingRows() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString databasePath = directory.filePath(QStringLiteral("legacy.sqlite"));
+        const QString connectionName = QStringLiteral("legacy-schema-seed");
+        {
+            QSqlDatabase database = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),
+                                                               connectionName);
+            database.setDatabaseName(databasePath);
+            QVERIFY(database.open());
+            QSqlQuery query(database);
+            const QStringList schema = {
+                QStringLiteral("CREATE TABLE market_series ("
+                               "provider_id TEXT NOT NULL,instrument_id TEXT NOT NULL,"
+                               "interval TEXT NOT NULL,provider_symbol TEXT NOT NULL,"
+                               "currency TEXT NULL,source_url TEXT NULL,attribution_id TEXT NULL,"
+                               "retrieved_at TEXT NULL,quality_status INTEGER NOT NULL,"
+                               "is_partial INTEGER NOT NULL,is_truncated INTEGER NOT NULL,"
+                               "missing_value_counts TEXT NOT NULL,warnings TEXT NOT NULL,"
+                               "next_page_cursor TEXT NULL,"
+                               "PRIMARY KEY(provider_id,instrument_id,interval))"),
+                QStringLiteral("CREATE TABLE market_bars ("
+                               "provider_id TEXT NOT NULL,instrument_id TEXT NOT NULL,"
+                               "interval TEXT NOT NULL,timestamp_ms INTEGER NOT NULL,"
+                               "open REAL NOT NULL,high REAL NOT NULL,low REAL NOT NULL,"
+                               "close REAL NOT NULL,adjusted_close REAL NULL,volume REAL NULL,"
+                               "PRIMARY KEY(provider_id,instrument_id,interval,timestamp_ms),"
+                               "FOREIGN KEY(provider_id,instrument_id,interval) "
+                               "REFERENCES market_series(provider_id,instrument_id,interval) "
+                               "ON DELETE CASCADE)"),
+                QStringLiteral("INSERT INTO market_series VALUES "
+                               "('legacy','equity.test','1d','TEST','USD',NULL,NULL,NULL,"
+                               "0,0,0,'{}','[]',NULL)"),
+                QStringLiteral("INSERT INTO market_bars VALUES "
+                               "('legacy','equity.test','1d',1795651200000,10,12,9,11,NULL,NULL)")
+            };
+            for (const QString& statement : schema) {
+                QVERIFY2(query.exec(statement), qPrintable(query.lastError().text()));
+            }
+            database.close();
+        }
+        QSqlDatabase::removeDatabase(connectionName);
+
+        {
+            SqliteMarketDataStore store(databasePath);
+            QString error;
+            QVERIFY2(store.open(&error), qPrintable(error));
+            const auto loaded = store.loadSeries(QStringLiteral("legacy"),
+                                                 QStringLiteral("equity.test"),
+                                                 QStringLiteral("1d"), &error);
+            QVERIFY2(loaded.has_value(), qPrintable(error));
+            QCOMPARE(loaded->bars.size(), qsizetype(1));
+            QCOMPARE(loaded->bars.first().close, 11.0);
+        }
+
+        const QString verifyConnection = QStringLiteral("legacy-version-check");
+        {
+            QSqlDatabase database = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),
+                                                               verifyConnection);
+            database.setDatabaseName(databasePath);
+            QVERIFY(database.open());
+            QSqlQuery query(database);
+            QVERIFY(query.exec(QStringLiteral("PRAGMA user_version")));
+            QVERIFY(query.next());
+            QCOMPARE(query.value(0).toInt(), 1);
+            database.close();
+        }
+        QSqlDatabase::removeDatabase(verifyConnection);
+    }
+
+    void rejectsNewerSchemaVersion() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString databasePath = directory.filePath(QStringLiteral("future.sqlite"));
+        const QString connectionName = QStringLiteral("future-schema-seed");
+        {
+            QSqlDatabase database = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),
+                                                               connectionName);
+            database.setDatabaseName(databasePath);
+            QVERIFY(database.open());
+            QSqlQuery query(database);
+            QVERIFY(query.exec(QStringLiteral("PRAGMA user_version = 99")));
+            database.close();
+        }
+        QSqlDatabase::removeDatabase(connectionName);
+
+        SqliteMarketDataStore store(databasePath);
+        QString error;
+        QVERIFY(!store.open(&error));
+        QVERIFY(!store.isOpen());
+        QVERIFY(error.contains(QStringLiteral("newer than supported")));
     }
 
     void rejectsInvalidSeriesWithoutWriting() {
