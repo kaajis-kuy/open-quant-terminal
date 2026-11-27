@@ -22,9 +22,10 @@ int retryDelaySeconds(int retryCount) {
 
 } // namespace
 
-FredClient::FredClient(QNetworkAccessManager* manager, QObject* parent)
+FredClient::FredClient(QNetworkAccessManager* manager, QObject* parent, QUrl endpointOverride)
     : QObject(parent),
-      m_manager(manager ? manager : new QNetworkAccessManager(this)) {
+      m_manager(manager ? manager : new QNetworkAccessManager(this)),
+      m_endpointOverride(std::move(endpointOverride)) {
 }
 
 bool FredClient::isBusy() const {
@@ -89,7 +90,16 @@ void FredClient::requestCurrentPage() {
         return;
     }
 
-    QNetworkRequest request(built.url);
+    QUrl requestUrl = built.url;
+    if (m_endpointOverride.isValid() && !m_endpointOverride.isEmpty()) {
+        requestUrl.setScheme(m_endpointOverride.scheme());
+        requestUrl.setHost(m_endpointOverride.host());
+        requestUrl.setPort(m_endpointOverride.port());
+        requestUrl.setPath(m_endpointOverride.path().isEmpty()
+            ? QStringLiteral("/fred/series/observations")
+            : m_endpointOverride.path());
+    }
+    QNetworkRequest request(requestUrl);
     request.setHeader(QNetworkRequest::UserAgentHeader,
                       QStringLiteral("OpenQuantTerminal/0.1"));
     request.setRawHeader("Accept", "application/json");
