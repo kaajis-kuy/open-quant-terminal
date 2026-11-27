@@ -23,6 +23,9 @@ public:
     [[nodiscard]] bool isOpen() const;
     // Checks SQLite page integrity and declared foreign-key relationships.
     [[nodiscard]] bool verifyIntegrity(QString* errorMessage = nullptr) const;
+    // Creates a consistent, compact SQLite snapshot at a new destination path.
+    [[nodiscard]] bool backupTo(const QString& destinationPath,
+                                 QString* errorMessage = nullptr) const;
     [[nodiscard]] bool saveSeries(const oqt::data::CanonicalMarketSeries& series,
                                   QString* errorMessage = nullptr);
     [[nodiscard]] std::optional<oqt::data::CanonicalMarketSeries> loadSeries(
