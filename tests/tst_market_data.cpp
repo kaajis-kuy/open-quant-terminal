@@ -90,6 +90,25 @@ private slots:
             QStringLiteral("bars must be ordered by strictly increasing timestamp")));
     }
 
+    void rejectsNonUtcTimestamps() {
+        auto bar = validBar(QDateTime(QDate(2026, 1, 2), QTime(9, 30), Qt::OffsetFromUTC, 3600));
+        QVERIFY(bar.timestamp.isValid());
+        QVERIFY(bar.validate().contains(
+            QStringLiteral("timestamp must be normalized to UTC")));
+    }
+
+    void acceptsUtcTimestampRepresentingNonUtcMarketTime() {
+        auto bar = validBar(QDateTime::fromString(
+            QStringLiteral("2026-01-02T14:30:00Z"), Qt::ISODate));
+        QVERIFY(bar.validate().isEmpty());
+    }
+
+    void rejectsInvalidTimestampInSeries() {
+        auto series = validSeries();
+        series.bars[0].timestamp = {};
+        QVERIFY(series.validate().contains(QStringLiteral("bars[0]: timestamp must be valid")));
+    }
+
     void permitsMissingVolumeAndAdjustedClose() {
         auto series = validSeries();
         series.bars[0].volume.reset();
