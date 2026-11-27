@@ -26,6 +26,8 @@ add_executable(open-quant-terminal
     src/core/data/CanonicalData.h
     src/core/providers/ProviderResponse.cpp
     src/core/providers/ProviderResponse.h
+    src/core/providers/ProviderAdapter.cpp
+    src/core/providers/ProviderAdapter.h
 )
 
 target_link_libraries(open-quant-terminal
@@ -100,6 +102,29 @@ if(OQT_BUILD_TESTS)
     )
 
     add_test(NAME tst_provider_response COMMAND tst_provider_response)
+
+    add_executable(tst_provider_adapter
+        tests/tst_provider_adapter.cpp
+        src/core/providers/ProviderAdapter.cpp
+        src/core/providers/ProviderAdapter.h
+        src/core/providers/ProviderResponse.cpp
+        src/core/providers/ProviderResponse.h
+        src/core/data/CanonicalData.cpp
+        src/core/data/CanonicalData.h
+    )
+
+    target_link_libraries(tst_provider_adapter
+        PRIVATE
+            Qt6::Test
+            Qt6::Core
+    )
+
+    target_include_directories(tst_provider_adapter
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    add_test(NAME tst_provider_adapter COMMAND tst_provider_adapter)
     set_tests_properties(tst_main_window PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     )
