@@ -49,13 +49,31 @@ bool SqliteMarketDataStore::open(QString* errorMessage) {
         return false;
     }
 
+    // A previous failed open may leave a registered but unusable connection.
+    // Remove it before reusing this store instance.
+    if (m_database.isValid()) {
+        m_database.close();
+        m_database = QSqlDatabase();
+        QSqlDatabase::removeDatabase(m_connectionName);
+    }
+
     m_database = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), m_connectionName);
     m_database.setDatabaseName(m_databasePath);
     if (!m_database.open()) {
-        setError(errorMessage, m_database.lastError().text());
+        const QString message = m_database.lastError().text();
+        setError(errorMessage, message);
+        m_database = QSqlDatabase();
+        QSqlDatabase::removeDatabase(m_connectionName);
         return false;
     }
-    return initializeSchema(errorMessage);
+
+    if (!initializeSchema(errorMessage)) {
+        m_database.close();
+        m_database = QSqlDatabase();
+        QSqlDatabase::removeDatabase(m_connectionName);
+        return false;
+    }
+    return true;
 }
 
 bool SqliteMarketDataStore::isOpen() const {
