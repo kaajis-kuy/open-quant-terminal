@@ -247,8 +247,13 @@ private slots:
     }
 
     void refreshActionsStartTasksAndExposeCancellation() {
+        oqt::application::MarketExplorerQuery marketQuery(
+            [](const QString&, const QString&, const QString&, qsizetype, qint64, QString*)
+                -> std::optional<oqt::application::QueryPage<oqt::data::CanonicalMarketSeries>> {
+                return std::nullopt;
+            });
         FakeRefreshTaskController controller;
-        MainWindow window(nullptr, nullptr, nullptr, nullptr, &controller);
+        MainWindow window(&marketQuery, nullptr, nullptr, nullptr, &controller);
         auto* marketInstrument = window.findChild<QLineEdit*>("marketInstrumentInput");
         auto* marketRefresh = window.findChild<QPushButton*>("refreshMarketButton");
         auto* cancel = window.findChild<QPushButton*>("cancelRefreshButton");
@@ -273,8 +278,13 @@ private slots:
 
 
     void marketRefreshCompletionRestoresIdleUiAndReportsPersistence() {
+        oqt::application::MarketExplorerQuery marketQuery(
+            [](const QString&, const QString&, const QString&, qsizetype, qint64, QString*)
+                -> std::optional<oqt::application::QueryPage<oqt::data::CanonicalMarketSeries>> {
+                return std::nullopt;
+            });
         FakeRefreshTaskController controller;
-        MainWindow window(nullptr, nullptr, nullptr, nullptr, &controller);
+        MainWindow window(&marketQuery, nullptr, nullptr, nullptr, &controller);
         auto* refresh = window.findChild<QPushButton*>("refreshMarketButton");
         auto* cancel = window.findChild<QPushButton*>("cancelRefreshButton");
         auto* status = window.findChild<QLabel*>("refreshTaskStatus");
@@ -312,8 +322,13 @@ private slots:
     }
 
     void economicRefreshCancellationRestoresIdleUi() {
+        oqt::application::EconomicDataExplorerQuery economicQuery(
+            [](const QString&, const QString&, qsizetype, qint64, QString*)
+                -> std::optional<oqt::application::QueryPage<oqt::data::CanonicalDataset>> {
+                return std::nullopt;
+            });
         FakeRefreshTaskController controller;
-        MainWindow window(nullptr, nullptr, nullptr, nullptr, &controller);
+        MainWindow window(nullptr, &economicQuery, nullptr, nullptr, &controller);
         auto* refresh = window.findChild<QPushButton*>("refreshEconomicButton");
         auto* cancel = window.findChild<QPushButton*>("cancelRefreshButton");
         auto* status = window.findChild<QLabel*>("refreshTaskStatus");
@@ -333,8 +348,18 @@ private slots:
     }
 
     void marketAndEconomicRefreshControlsRemainIndependent() {
+        oqt::application::MarketExplorerQuery marketQuery(
+            [](const QString&, const QString&, const QString&, qsizetype, qint64, QString*)
+                -> std::optional<oqt::application::QueryPage<oqt::data::CanonicalMarketSeries>> {
+                return std::nullopt;
+            });
+        oqt::application::EconomicDataExplorerQuery economicQuery(
+            [](const QString&, const QString&, qsizetype, qint64, QString*)
+                -> std::optional<oqt::application::QueryPage<oqt::data::CanonicalDataset>> {
+                return std::nullopt;
+            });
         FakeRefreshTaskController controller;
-        MainWindow window(nullptr, nullptr, nullptr, nullptr, &controller);
+        MainWindow window(&marketQuery, &economicQuery, nullptr, nullptr, &controller);
         auto* marketRefresh = window.findChild<QPushButton*>("refreshMarketButton");
         auto* economicRefresh = window.findChild<QPushButton*>("refreshEconomicButton");
         auto* status = window.findChild<QLabel*>("refreshTaskStatus");
@@ -356,6 +381,29 @@ private slots:
         QVERIFY(economicRefresh->isEnabled());
         QVERIFY(marketRefresh->isEnabled());
         QVERIFY(!window.findChild<QPushButton*>("cancelRefreshButton")->isEnabled());
+    }
+
+
+    void refreshActionsRespectIndependentModuleAvailability() {
+        oqt::application::MarketExplorerQuery marketQuery(
+            [](const QString&, const QString&, const QString&, qsizetype, qint64, QString*)
+                -> std::optional<oqt::application::QueryPage<oqt::data::CanonicalMarketSeries>> {
+                return std::nullopt;
+            });
+        oqt::application::EconomicDataExplorerQuery economicQuery(
+            [](const QString&, const QString&, qsizetype, qint64, QString*)
+                -> std::optional<oqt::application::QueryPage<oqt::data::CanonicalDataset>> {
+                return std::nullopt;
+            });
+        FakeRefreshTaskController controller;
+
+        MainWindow economicOnly(nullptr, &economicQuery, nullptr, nullptr, &controller);
+        QVERIFY(!economicOnly.findChild<QPushButton*>("refreshMarketButton")->isEnabled());
+        QVERIFY(economicOnly.findChild<QPushButton*>("refreshEconomicButton")->isEnabled());
+
+        MainWindow marketOnly(&marketQuery, nullptr, nullptr, nullptr, &controller);
+        QVERIFY(marketOnly.findChild<QPushButton*>("refreshMarketButton")->isEnabled());
+        QVERIFY(!marketOnly.findChild<QPushButton*>("refreshEconomicButton")->isEnabled());
     }
 
     void window_starts_in_ready_state() {
