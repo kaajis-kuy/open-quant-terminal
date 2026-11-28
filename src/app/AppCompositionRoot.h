@@ -1,6 +1,7 @@
 #pragma once
 
 #include "application/DataExplorerQueries.h"
+#include "application/CatalogQueries.h"
 #include "core/providers/FredPipeline.h"
 #include "core/providers/YahooPipeline.h"
 #include "core/services/EconomicDataIngestionService.h"
@@ -61,6 +62,8 @@ public:
     [[nodiscard]] services::FredEconomicRefreshService* economicRefreshService();
     [[nodiscard]] application::MarketExplorerQuery* marketExplorerQuery();
     [[nodiscard]] application::EconomicDataExplorerQuery* economicDataExplorerQuery();
+    [[nodiscard]] application::MarketInstrumentCatalogQuery* marketInstrumentCatalogQuery();
+    [[nodiscard]] application::EconomicDatasetCatalogQuery* economicDatasetCatalogQuery();
 
 private:
     void reset();
@@ -72,6 +75,8 @@ private:
 
     std::unique_ptr<application::MarketExplorerQuery> m_marketExplorerQuery;
     std::unique_ptr<application::EconomicDataExplorerQuery> m_economicDataExplorerQuery;
+    std::unique_ptr<application::MarketInstrumentCatalogQuery> m_marketInstrumentCatalogQuery;
+    std::unique_ptr<application::EconomicDatasetCatalogQuery> m_economicDatasetCatalogQuery;
     std::unique_ptr<storage::SqliteMarketDataStore> m_marketStore;
     std::unique_ptr<storage::SqliteCanonicalDatasetStore> m_economicStore;
     std::unique_ptr<services::MarketDataIngestionService> m_marketIngestion;
