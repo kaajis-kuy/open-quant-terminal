@@ -90,3 +90,12 @@ This is an implementation checkpoint, not an R1 completion claim. Pagination exa
 - The workflow correction is committed on the PR #13 branch. Exact-head CI for `7a8d75311519cee11a068c6f2d5a1c00615c8af7` passed in run [#46139410044](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46139410044): Configure, Build, and Run tests all succeeded.
 - CTest result: 20/20 tests passed, 0 failed; total test time 7.00 seconds.
 - This verifies the workflow-fix commit and the PR #13 code as of that SHA. A subsequent documentation-only commit will trigger another exact-head CI run; the latest-head status must be checked separately before declaring the PR's final verification complete.
+
+
+## Latest-head CI verification — 2026-11-28
+
+- PR #13 current head `687fa4b09be5adf69634960c9cd89e9933f93b45` completed exact-head GitHub Actions run [#46139791292](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46139791292) successfully.
+- Linux / Qt 6.8.3: Configure PASS, Build PASS, Run tests PASS.
+- CTest: 20/20 passed, 0 failed; total test time 7.11 seconds.
+- This supersedes the earlier pending status for the documentation commit. The trigger fix and PR #13 code are verified on the latest PR head.
+- Remaining R1 exit work is a final acceptance/review audit across the stacked PR series, checking current-head CI evidence and unresolved live-provider/licensing/runtime limitations. PRs remain unmerged; maintainer approval is required for any merge.
