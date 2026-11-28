@@ -122,7 +122,8 @@ private slots:
         QVERIFY(!composition.marketStatus().available);
         QVERIFY(composition.economicStatus().available);
         QVERIFY(composition.marketRefreshService() == nullptr);
-        QVERIFY(composition.marketExplorerQuery() == nullptr);\n        QVERIFY(composition.marketInstrumentCatalogQuery() == nullptr);
+        QVERIFY(composition.marketExplorerQuery() == nullptr);
+        QVERIFY(composition.marketInstrumentCatalogQuery() == nullptr);
         QVERIFY(composition.economicRefreshService() != nullptr);
     }
 
