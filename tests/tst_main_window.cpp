@@ -1,6 +1,7 @@
 #include "app/MainWindow.h"
 #include "application/CatalogQueries.h"
 #include "application/DataExplorerQueries.h"
+#include "application/RefreshTaskController.h"
 
 #include <QLabel>
 #include <QComboBox>
@@ -11,6 +12,37 @@
 #include <QTabWidget>
 #include <QTableWidget>
 #include <QtTest>
+
+class FakeRefreshTaskController final : public oqt::application::RefreshTaskController {
+public:
+    bool startMarketRefresh(const QString& symbol, const QString& instrument,
+                            const QString& interval, const QString& requestId) override {
+        marketSymbol = symbol;
+        marketInstrument = instrument;
+        marketInterval = interval;
+        marketRequestId = requestId;
+        return allowStart;
+    }
+    bool startEconomicRefresh(const QString& dataset, const QString& requestId,
+                              QString* errorMessage) override {
+        economicDataset = dataset;
+        economicRequestId = requestId;
+        if (!allowStart && errorMessage) *errorMessage = QStringLiteral("test start failure");
+        return allowStart;
+    }
+    void cancelMarketRefresh() override { ++marketCancelCount; }
+    void cancelEconomicRefresh() override { ++economicCancelCount; }
+
+    bool allowStart = true;
+    QString marketSymbol;
+    QString marketInstrument;
+    QString marketInterval;
+    QString marketRequestId;
+    QString economicDataset;
+    QString economicRequestId;
+    int marketCancelCount = 0;
+    int economicCancelCount = 0;
+};
 
 class MainWindowTest final : public QObject {
     Q_OBJECT
@@ -203,6 +235,31 @@ private slots:
         QCOMPARE(progress->minimum(), 0);
         QCOMPARE(progress->maximum(), 1);
         QCOMPARE(progress->value(), 0);
+    }
+
+    void refreshActionsStartTasksAndExposeCancellation() {
+        FakeRefreshTaskController controller;
+        MainWindow window(nullptr, nullptr, nullptr, nullptr, &controller);
+        auto* marketInstrument = window.findChild<QLineEdit*>("marketInstrumentInput");
+        auto* marketRefresh = window.findChild<QPushButton*>("refreshMarketButton");
+        auto* cancel = window.findChild<QPushButton*>("cancelRefreshButton");
+        auto* status = window.findChild<QLabel*>("refreshTaskStatus");
+        auto* progress = window.findChild<QProgressBar*>("refreshTaskProgress");
+        QVERIFY(marketInstrument && marketRefresh && cancel && status && progress);
+
+        marketInstrument->setText(QStringLiteral("equity.msft"));
+        marketRefresh->click();
+        QCOMPARE(controller.marketSymbol, QStringLiteral("equity.msft"));
+        QCOMPARE(controller.marketInstrument, QStringLiteral("equity.msft"));
+        QCOMPARE(controller.marketInterval, QStringLiteral("1d"));
+        QVERIFY(!controller.marketRequestId.isEmpty());
+        QVERIFY(cancel->isEnabled());
+        QCOMPARE(progress->maximum(), 0);
+        QCOMPARE(status->text(), QStringLiteral("Refreshing market data…"));
+
+        cancel->click();
+        QCOMPARE(controller.marketCancelCount, 1);
+        QCOMPARE(status->text(), QStringLiteral("Cancelling market refresh…"));
     }
 
     void window_starts_in_ready_state() {
