@@ -1,19 +1,19 @@
 name: Build and test
 
 on:
+  # Validate every pushed branch so local development never depends on
+  # a narrow branch-name convention.
   push:
-    branches:
-      - main
-      - 'feature/**'
+  # Validate PRs regardless of their target branch (the project uses a
+  # stacked PR chain, not only PRs targeting main).
   pull_request:
-    branches:
-      - main
+  # Allow a maintainer to rerun validation manually from GitHub.
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# Feature branches are validated on push; pull_request checks validate PRs targeting main.
+# Every push and pull request is validated, including stacked PR targets.
 # Cancel obsolete runs when newer commits arrive for the same PR or branch.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
