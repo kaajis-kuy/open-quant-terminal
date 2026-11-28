@@ -2,7 +2,7 @@
 
 A self-hosted quantitative-finance research terminal. The project is being developed as an independent implementation, using public provider specifications and a documented feature audit as references.
 
-> **Status: application composition and local provider-persistence foundations implemented; verification pending.** This is not yet a complete finance terminal. Provider refreshes are initiated by application services and require provider configuration; no live API is called automatically at startup.
+> **Status: application composition and local provider-persistence foundations implemented and verified.** This is not yet a complete finance terminal. Provider refreshes are initiated by application services and require provider configuration; no live API is called automatically at startup.
 
 ## Project goals
 
@@ -38,11 +38,15 @@ The current vertical slice uses Qt Widgets, Network, and SQL. SQLite market and 
 - [x] Qt Test smoke cases for window identity, content, and status.
 - [x] Compile and execute tests in Linux CI with Qt 6.8.3.
 - [x] Provider response envelope decoder with deterministic tests.
-- [x] FRED canonical economic dataset SQLite store and provider-neutral ingestion service (build/test verification pending).
-- [x] Yahoo OHLCV SQLite store and refresh service (build/test verification pending for the latest branch).
-- [x] Application composition root with independent market/economic startup and degraded-mode status.
-- [x] FRED refresh orchestration from provider pipeline through canonical SQLite persistence.
-- [ ] Full build and integration-test verification on the updated branch.
+- [x] FRED canonical economic dataset SQLite store and provider-neutral ingestion service (verified).
+- [x] Yahoo OHLCV SQLite store and refresh service (verified).
+- [x] Application composition root with independent market/economic startup and degraded-mode status (verified).
+- [x] FRED refresh orchestration from provider pipeline through canonical SQLite persistence (verified).
+- [x] Full build and integration-test verification on the updated branch.
+
+Latest verification for commit `b0884c2828a4a6f918dadeb03eb47d482c6f67ad`:
+- Local X230 run: 20/20 tests passed.
+- GitHub Actions run [#282](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46122625087): Linux / Qt 6.8.3 configure, build, and test jobs succeeded.
 
 ## Runtime configuration
 
