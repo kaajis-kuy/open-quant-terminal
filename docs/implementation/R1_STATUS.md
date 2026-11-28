@@ -82,3 +82,11 @@
 - Run final exact-head CI and review all stacked PRs; no merge without maintainer approval.
 
 This is an implementation checkpoint, not an R1 completion claim. Pagination exact-head CI is green. Live provider behavior and data entitlements remain unverified. Pull-request merge requires separate maintainer approval.
+
+
+## Refresh UI regression CI verification — 2026-11-28
+
+- Corrected the workflow trigger by adding `test/**` to the `.github/workflows/ci.yml` push branch filter. The prior configuration included only `main` and `feature/**` for push, while pull_request targeted only `main`; PR #13 targets a feature branch and uses a test branch head, so neither event matched.
+- The workflow correction is committed on the PR #13 branch. Exact-head CI for `7a8d75311519cee11a068c6f2d5a1c00615c8af7` passed in run [#46139410044](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46139410044): Configure, Build, and Run tests all succeeded.
+- CTest result: 20/20 tests passed, 0 failed; total test time 7.00 seconds.
+- This verifies the workflow-fix commit and the PR #13 code as of that SHA. A subsequent documentation-only commit will trigger another exact-head CI run; the latest-head status must be checked separately before declaring the PR's final verification complete.
