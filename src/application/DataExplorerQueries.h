@@ -5,6 +5,7 @@
 
 #include <functional>
 #include <optional>
+#include <utility>
 
 namespace oqt::application {
 
