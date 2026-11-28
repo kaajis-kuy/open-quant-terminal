@@ -591,6 +591,86 @@ void MainWindow::selectEconomicCatalogEntry(int index) {
     m_economicSummary->setText(QStringLiteral("Stored dataset selected. Load the dataset to inspect its observations."));
 }
 
+void MainWindow::updateRefreshTaskUi() {
+    const bool marketActive = !m_marketRequestId.isEmpty();
+    const bool economicActive = !m_economicRequestId.isEmpty();
+    const bool active = marketActive || economicActive;
+    m_refreshProgress->setRange(0, active ? 0 : 1);
+    if (!active) m_refreshProgress->setValue(0);
+    m_cancelRefreshButton->setEnabled(active);
+    m_marketRefreshButton->setEnabled(m_marketRefresh && !marketActive);
+    m_economicRefreshButton->setEnabled(m_economicRefresh
+                                        && static_cast<bool>(m_economicRefreshStarter)
+                                        && !economicActive);
+    if (marketActive && economicActive) {
+        m_refreshTaskLabel->setText(QStringLiteral("Market and economic refresh running…"));
+    } else if (marketActive) {
+        m_refreshTaskLabel->setText(m_marketCancelRequested
+            ? QStringLiteral("Cancelling market refresh…")
+            : QStringLiteral("Refreshing market data…"));
+    } else if (economicActive) {
+        m_refreshTaskLabel->setText(m_economicCancelRequested
+            ? QStringLiteral("Cancelling economic refresh…")
+            : QStringLiteral("Refreshing economic data…"));
+    } else if (m_refreshTaskLabel->text().contains(QStringLiteral("running"))
+               || m_refreshTaskLabel->text().contains(QStringLiteral("Cancelling"))
+               || m_refreshTaskLabel->text().contains(QStringLiteral("Refreshing"))) {
+        m_refreshTaskLabel->setText(QStringLiteral("No refresh task running"));
+    }
+}
+
+void MainWindow::handleMarketRefreshFinished(
+    const QString& requestId, bool persisted, const QString& errorMessage,
+    const oqt::providers::AdapterResult& result) {
+    Q_UNUSED(result);
+    if (requestId != m_marketRequestId) return;
+    const bool cancelled = m_marketCancelRequested;
+    m_marketRequestId.clear();
+    m_marketCancelRequested = false;
+    if (persisted) {
+        m_refreshTaskLabel->setText(QStringLiteral("Market refresh completed and persisted"));
+        statusBar()->showMessage(QStringLiteral("Market refresh completed"));
+        loadMarketSeries();
+        loadMarketCatalogPage(m_marketCatalogOffset);
+    } else if (cancelled) {
+        m_refreshTaskLabel->setText(QStringLiteral("Market refresh cancelled"));
+        statusBar()->showMessage(QStringLiteral("Market refresh cancelled"));
+    } else {
+        const QString message = errorMessage.isEmpty()
+            ? QStringLiteral("Market refresh failed; provider returned no persisted data")
+            : errorMessage;
+        m_refreshTaskLabel->setText(QStringLiteral("Market refresh failed: %1").arg(message));
+        statusBar()->showMessage(QStringLiteral("Market refresh failed: %1").arg(message));
+    }
+    updateRefreshTaskUi();
+}
+
+void MainWindow::handleEconomicRefreshFinished(
+    const QString& requestId, bool persisted, const QString& errorMessage,
+    const oqt::providers::AdapterResult& result) {
+    Q_UNUSED(result);
+    if (requestId != m_economicRequestId) return;
+    const bool cancelled = m_economicCancelRequested;
+    m_economicRequestId.clear();
+    m_economicCancelRequested = false;
+    if (persisted) {
+        m_refreshTaskLabel->setText(QStringLiteral("Economic refresh completed and persisted"));
+        statusBar()->showMessage(QStringLiteral("Economic refresh completed"));
+        loadEconomicDataset();
+        loadEconomicCatalogPage(m_economicCatalogOffset);
+    } else if (cancelled) {
+        m_refreshTaskLabel->setText(QStringLiteral("Economic refresh cancelled"));
+        statusBar()->showMessage(QStringLiteral("Economic refresh cancelled"));
+    } else {
+        const QString message = errorMessage.isEmpty()
+            ? QStringLiteral("Economic refresh failed; provider returned no persisted data")
+            : errorMessage;
+        m_refreshTaskLabel->setText(QStringLiteral("Economic refresh failed: %1").arg(message));
+        statusBar()->showMessage(QStringLiteral("Economic refresh failed: %1").arg(message));
+    }
+    updateRefreshTaskUi();
+}
+
 void MainWindow::loadMarketSeries() {
     if (!m_marketQuery) return;
     QString error;
