@@ -127,3 +127,14 @@ This is an implementation checkpoint, not an R1 completion claim. Pagination exa
 ### CI trigger update
 
 - Workflow now runs on every push and every pull request target, plus manual `workflow_dispatch`. The trigger update is included in the passing PR #13 exact-head run above.
+
+
+## R1 merge completion — 2026-11-28
+
+- Maintainer explicitly approved integration. PR #3 and the full R1 implementation stack #5–#13 were merged into `main` in dependency order using merge commits.
+- Merge commits: #3 `bc2fd30b557fb4ff67ec78021c2d215d20fee646`; #5 `49854d50f0dc7794b8ff83d9d99a1ffba208711c`; #6 `41e8f60799ab2a77309005eaa23521dd1136e340`; #7 `a2407bf543ae5713b2dbdef3c5d57473445d7999`; #8 `bfb1bf2454334835f592288e1deff9b4ea33c3d2`; #9 `06c320bd770a19d64f9bee9a5f832d2f47038ff6`; #10 `a05db267372799a0965519e170c075e759fe9868`; #11 `1c7d5c0182320cfd8e08fd245568e92ea26700ab`; #12 `27b8d95d44727208585816e995c02561a07c9bed`; #13 `bb526bcc6141460dfbd09119c8c2b729f5aebb50`.
+- GitHub was queried after integration: all ten PRs (#3, #5–#13) report `merged=true` and `state=closed`. The final integrated main commit is `bb526bcc6141460dfbd09119c8c2b729f5aebb50`.
+- PR #6–#13 were retargeted to `main` one at a time after their parent merged, preserving the stacked dependency order and allowing each incremental PR to be merged independently.
+- Exact-head CI passed for the final PR #13 head before merge: run [#46161733221](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46161733221), Linux / Qt 6.8.3 Configure, Build, and Run tests all succeeded. The post-merge main-branch CI run for final merge commit must still be checked separately.
+- X230 evidence remains as recorded above: full 20/20 tests and the isolated AppCompositionRoot test passed, GUI launched, Yahoo/FRED sample refreshes persisted, and offline reload worked. Manual GUI fault injection with a deliberately unavailable DB was not performed.
+- R1 code and architecture PRs are integrated into main. Remaining work is post-merge main CI verification, a fresh clone/build smoke check if desired, and the next R1/R2 feature acceptance scope. Do not equate merge completion with comprehensive provider, licensing, or all-platform validation.
