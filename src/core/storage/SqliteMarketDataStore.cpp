@@ -643,7 +643,12 @@ std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSerie
     if (endExclusiveMs.has_value()) {
         barsSql += QStringLiteral(" AND timestamp_ms<?");
     }
-    barsSql += QStringLiteral(" ORDER BY timestamp_ms DESC");
+    // Page queries select the newest slice first. Range reads preserve their
+    // established earliest-first semantics, including bounded maxBars reads.
+    const bool newestFirstPage = hasMore != nullptr;
+    barsSql += newestFirstPage
+        ? QStringLiteral(" ORDER BY timestamp_ms DESC")
+        : QStringLiteral(" ORDER BY timestamp_ms ASC");
     if (maxBars > 0) {
         barsSql += QStringLiteral(" LIMIT ? OFFSET ?");
     }
@@ -685,9 +690,11 @@ std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSerie
             QStringLiteral("OHLCV range result truncated at maxBars=%1").arg(maxBars));
     }
 
-    // Fetch newest rows first for the initial page, then restore chronological
-    // order for tables and charts. OFFSET therefore pages backwards in history.
-    std::reverse(series.bars.begin(), series.bars.end());
+    // Only page queries are fetched newest-first; reverse those slices so
+    // each page remains chronological. Range reads are already ascending.
+    if (newestFirstPage) {
+        std::reverse(series.bars.begin(), series.bars.end());
+    }
 
     // A valid query can return no candles even when the stored full series
     // was non-empty. Represent the returned slice as an empty result.
