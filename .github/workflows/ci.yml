@@ -1,0 +1,59 @@
+name: Build and test
+
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Feature branches are validated on push; pull_request checks validate PRs targeting main.
+# Cancel obsolete runs when newer commits arrive for the same PR or branch.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux-qt:
+    name: Linux / Qt 6.8.3
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Install build tools
+        run: |
+          # The hosted runner may include an unrelated Microsoft package feed.
+          # Disable only source files that reference it so its outage cannot block
+          # installation of the Ubuntu build dependencies.
+          for source in /etc/apt/sources.list.d/*; do
+            if [ -f "$source" ] && sudo grep -q "packages.microsoft.com" "$source"; then
+              sudo mv "$source" "${source}.disabled"
+            fi
+          done
+          sudo apt-get update
+          sudo apt-get install --yes cmake ninja-build g++
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.8.3
+          host: linux
+          target: desktop
+          arch: linux_gcc_64
+          cache: true
+
+      - name: Configure
+        run: cmake -S . -B build -G Ninja -DOQT_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --parallel 2
+
+      - name: Run tests
+        run: ctest --test-dir build --output-on-failure

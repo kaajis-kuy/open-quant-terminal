@@ -1,0 +1,47 @@
+#pragma once
+
+#include "core/providers/YahooClient.h"
+#include "core/providers/YahooFinanceAdapter.h"
+#include "core/services/ProviderNormalizationService.h"
+
+#include <memory>
+
+#include <QObject>
+#include <QPointer>
+
+namespace oqt::providers {
+
+class YahooPipeline final : public QObject {
+    Q_OBJECT
+
+public:
+    explicit YahooPipeline(YahooClient* client = nullptr,
+                           QObject* parent = nullptr);
+
+    [[nodiscard]] bool isBusy() const;
+
+    // Runs Yahoo chart fetch -> response decode -> canonical OHLCV normalization.
+    [[nodiscard]] bool fetchChart(YahooChartRequest request,
+                                  QString datasetId,
+                                  QString requestId);
+
+    void cancel();
+
+signals:
+    void finished(const QString& requestId,
+                  const oqt::providers::AdapterResult& result);
+
+private:
+    void handleClientFinished(const QString& requestId,
+                              const QByteArray& payload,
+                              int httpStatus,
+                              const QString& errorMessage);
+
+    QPointer<YahooClient> m_client;
+    ProviderAdapterRegistry m_registry;
+    oqt::services::ProviderNormalizationService m_normalizer;
+    ProviderRequestContext m_context;
+    bool m_busy = false;
+};
+
+} // namespace oqt::providers
