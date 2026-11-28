@@ -40,7 +40,7 @@
 - Yahoo provider symbols from catalog entries are kept separate from canonical instrument IDs so persisted refreshes remain keyed consistently.
 - The current provider clients do not expose reliable byte/record progress events; the UI therefore uses an indeterminate progress indicator rather than inventing a percentage. More granular provider progress can be added when supported by the transport layer.
 - Added UI coverage for idle task status, disabled cancellation, disabled unavailable refresh actions, and progress indicator reset.
-- Exact-head CI for this increment is pending; do not claim verification until the workflow for the latest PR head passes.
+- Exact-head CI for PR #9 head `4bdf863b36c5683e0849348b894d9b8eeae043ca` was confirmed by maintainer; this record does not independently assert a GitHub workflow run.
 
 ## Integration-test increment in progress
 
@@ -48,7 +48,7 @@
 - Extended the FRED refresh-service integration test to verify the mock HTTP provider → FRED pipeline/normalization → ingestion → SQLite → application `EconomicDataExplorerQuery` read-model path.
 - These tests use loopback mock HTTP servers and temporary SQLite databases; they do not call live Yahoo/FRED endpoints or require credentials.
 - Existing Yahoo cancellation and provider-failure cases continue to assert that unsuccessful requests do not persist a dataset.
-- Exact-head CI for this test increment is pending.
+- Exact-head CI for PR #10 head `5300e58f16997c15dbd32114c3388289fe36e2a1` passed: Linux / Qt 6.8.3 Configure, Build, and Run tests all succeeded in run [#46136104316](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46136104316).
 
 ## FRED quality and failure coverage increment in progress
 
@@ -57,7 +57,7 @@
 - Added an HTTP 403 provider-failure test asserting the refresh fails and no economic dataset is persisted.
 - Added a cancellation test asserting the refresh completes as failed/cancelled and no dataset is persisted.
 - Tests use loopback mock HTTP and temporary SQLite only; no live FRED API or credentials are required.
-- Exact-head CI for this increment is pending.
+- Exact-head CI for PR #11 head `6f9ff4ca758f8b99ba0b60ff90e8b2d4117eb9f6` passed: Linux / Qt 6.8.3 Configure, Build, and Run tests all succeeded in run [#46137432383](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46137432383).
 
 ## Degraded-mode isolation test increment in progress
 
@@ -65,7 +65,7 @@
 - The unavailable module must expose no refresh service, explorer query, or catalog query.
 - Uses temporary directories and a directory at the blocked database-file path to trigger deterministic SQLite open failure without relying on OS permission behavior.
 - No production code or schema changes; the increment verifies independent module startup and read availability.
-- Exact-head CI is pending.
+- Exact-head CI for PR #12 head `3ebcb31b212ce6c53915ff2f90628a5bfb2d62a5` passed: Linux / Qt 6.8.3 Configure, Build, and Run tests all succeeded in run [#46138166744](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46138166744).
 
 ## Refresh UI regression increment in progress
 
@@ -74,10 +74,10 @@
 - Added degraded-module UI coverage: when one application explorer query is unavailable, its corresponding refresh action is disabled while the other module's refresh action remains enabled.
 - Fixed MainWindow refresh-action enablement to require both the refresh controller and the corresponding module query/read-model. This prevents offering a refresh action for a database module that failed startup in degraded mode.
 - Tests use a fake RefreshTaskController and query fixtures; no live providers or credentials.
-- Exact-head CI is pending.
+- Exact-head CI for PR #13 head `b6b38aef94582e2ba926e2e0048fe607974a8a15` had no workflow run at review time. This status update will create a new PR head and trigger the required CI.
 
 ## Remaining R1 work
-- Run exact-head CI for the refresh UI increment and fix any failures.
+- Verify the newly triggered exact-head CI for PR #13 and fix any failures.
 - Add any remaining UI smoke/regression coverage identified by CI/review.
 - Run final exact-head CI and review all stacked PRs; no merge without maintainer approval.
 
