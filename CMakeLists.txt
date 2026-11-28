@@ -600,6 +600,7 @@ if(OQT_BUILD_TESTS)
         tests/tst_app_composition_root.cpp
         src/app/AppCompositionRoot.cpp
         src/app/AppCompositionRoot.h
+        src/application/RefreshTaskController.h
         src/core/services/FredEconomicRefreshService.cpp
         src/core/services/FredEconomicRefreshService.h
         src/core/services/YahooMarketDataRefreshService.cpp
