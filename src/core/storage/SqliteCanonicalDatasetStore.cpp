@@ -223,7 +223,10 @@ bool SqliteCanonicalDatasetStore::upsertDataset(
         missingCountsToJson(dataset.quality.missingValueCounts)).toJson(QJsonDocument::Compact)));
     metadata.addBindValue(QString::fromUtf8(QJsonDocument(
         stringsToJson(dataset.quality.warnings)).toJson(QJsonDocument::Compact)));
-    metadata.addBindValue(dataset.quality.nextPageCursor);
+    // A default-constructed QString is null; persist an absent cursor as empty TEXT,
+    // not SQL NULL, because next_page_cursor is declared NOT NULL.
+    metadata.addBindValue(dataset.quality.nextPageCursor.isNull()
+        ? QStringLiteral("") : dataset.quality.nextPageCursor);
     if (!metadata.exec()) {
         setError(errorMessage, sqlError(metadata));
         m_database.rollback();
