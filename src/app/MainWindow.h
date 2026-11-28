@@ -7,6 +7,10 @@ class MarketExplorerQuery;
 class EconomicDataExplorerQuery;
 }
 
+class QLabel;
+class QLineEdit;
+class QTableWidget;
+
 class MainWindow final : public QMainWindow {
     Q_OBJECT
 
@@ -23,14 +27,14 @@ private:
     oqt::application::MarketExplorerQuery* m_marketQuery = nullptr;
     oqt::application::EconomicDataExplorerQuery* m_economicQuery = nullptr;
 
-    class QLineEdit* m_marketProvider = nullptr;
-    class QLineEdit* m_marketInstrument = nullptr;
-    class QLineEdit* m_marketInterval = nullptr;
-    class QTableWidget* m_marketTable = nullptr;
-    class QLabel* m_marketSummary = nullptr;
+    QLineEdit* m_marketProvider = nullptr;
+    QLineEdit* m_marketInstrument = nullptr;
+    QLineEdit* m_marketInterval = nullptr;
+    QTableWidget* m_marketTable = nullptr;
+    QLabel* m_marketSummary = nullptr;
 
-    class QLineEdit* m_economicProvider = nullptr;
-    class QLineEdit* m_economicDataset = nullptr;
-    class QTableWidget* m_economicTable = nullptr;
-    class QLabel* m_economicSummary = nullptr;
+    QLineEdit* m_economicProvider = nullptr;
+    QLineEdit* m_economicDataset = nullptr;
+    QTableWidget* m_economicTable = nullptr;
+    QLabel* m_economicSummary = nullptr;
 };
