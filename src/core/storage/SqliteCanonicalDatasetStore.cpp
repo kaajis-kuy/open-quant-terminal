@@ -147,8 +147,7 @@ bool SqliteCanonicalDatasetStore::initializeSchema(QString* errorMessage) {
             "provider_id TEXT NOT NULL, request_id TEXT NOT NULL, operation_id TEXT NOT NULL,"
             "schema_version TEXT NOT NULL, fetched_at TEXT NOT NULL, payload_json TEXT NOT NULL,"
             "payload_reference TEXT NOT NULL, redacted_arguments TEXT NOT NULL, error_message TEXT NOT NULL,"
-            "PRIMARY KEY(provider_id,request_id),"
-            "FOREIGN KEY(provider_id) REFERENCES economic_datasets(provider_id) DEFERRABLE INITIALLY DEFERRED)")
+            "PRIMARY KEY(provider_id,request_id))")
     };
     QSqlQuery query(m_database);
     for (const QString& statement : statements) {
