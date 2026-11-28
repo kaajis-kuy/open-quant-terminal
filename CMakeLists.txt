@@ -22,6 +22,7 @@ add_executable(open-quant-terminal
     src/main.cpp
     src/app/AppCompositionRoot.cpp
     src/app/AppCompositionRoot.h
+    src/application/DataExplorerQueries.h
     src/app/MainWindow.cpp
     src/app/MainWindow.h
     src/core/data/CanonicalData.cpp
