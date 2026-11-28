@@ -2,6 +2,11 @@
 
 #include <QMainWindow>
 
+
+namespace oqt::providers { struct AdapterResult; }
+
+namespace oqt::application { class RefreshTaskController; }
+
 namespace oqt::application {
 class MarketExplorerQuery;
 class EconomicDataExplorerQuery;
@@ -14,6 +19,7 @@ class QLineEdit;
 class QComboBox;
 class QTableWidget;
 class QPushButton;
+class QProgressBar;
 class OqtChartWidget;
 
 class MainWindow final : public QMainWindow {
@@ -29,6 +35,12 @@ public:
                oqt::application::MarketInstrumentCatalogQuery* marketCatalog,
                oqt::application::EconomicDatasetCatalogQuery* economicCatalog,
                QWidget* parent = nullptr);
+    MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
+               oqt::application::EconomicDataExplorerQuery* economicQuery,
+               oqt::application::MarketInstrumentCatalogQuery* marketCatalog,
+               oqt::application::EconomicDatasetCatalogQuery* economicCatalog,
+               oqt::application::RefreshTaskController* refreshController,
+               QWidget* parent = nullptr);
 
 private:
     void loadMarketSeries();
@@ -38,11 +50,29 @@ private:
     void loadEconomicCatalogPage(qint64 offset);
     void selectMarketCatalogEntry(int index);
     void selectEconomicCatalogEntry(int index);
+    void updateRefreshTaskUi();
+    void handleMarketRefreshFinished(const QString& requestId, bool persisted,
+                                     const QString& errorMessage,
+                                     const oqt::providers::AdapterResult& result);
+    void handleEconomicRefreshFinished(const QString& requestId, bool persisted,
+                                       const QString& errorMessage,
+                                       const oqt::providers::AdapterResult& result);
 
     oqt::application::MarketExplorerQuery* m_marketQuery = nullptr;
     oqt::application::EconomicDataExplorerQuery* m_economicQuery = nullptr;
     oqt::application::MarketInstrumentCatalogQuery* m_marketCatalog = nullptr;
     oqt::application::EconomicDatasetCatalogQuery* m_economicCatalog = nullptr;
+    oqt::application::RefreshTaskController* m_refreshController = nullptr;
+    QString m_marketRequestId;
+    QString m_marketProviderSymbol;
+    QString m_economicRequestId;
+    bool m_marketCancelRequested = false;
+    bool m_economicCancelRequested = false;
+    QPushButton* m_marketRefreshButton = nullptr;
+    QPushButton* m_economicRefreshButton = nullptr;
+    QPushButton* m_cancelRefreshButton = nullptr;
+    QProgressBar* m_refreshProgress = nullptr;
+    QLabel* m_refreshTaskLabel = nullptr;
 
     QComboBox* m_marketCatalogSelector = nullptr;
     QPushButton* m_marketCatalogPrevious = nullptr;

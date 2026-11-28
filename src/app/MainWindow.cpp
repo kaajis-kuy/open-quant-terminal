@@ -2,6 +2,7 @@
 
 #include "application/DataExplorerQueries.h"
 #include "application/CatalogQueries.h"
+#include "application/RefreshTaskController.h"
 
 #include <QHeaderView>
 #include <QPainter>
@@ -12,11 +13,14 @@
 #include <QPolygonF>
 #include <QSizePolicy>
 #include <limits>
+#include <utility>
 #include <QComboBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QProgressBar>
+#include <QUuid>
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QTableWidget>
@@ -220,13 +224,13 @@ private:
 };
 
 MainWindow::MainWindow(QWidget* parent)
-    : MainWindow(nullptr, nullptr, nullptr, nullptr, parent) {
+    : MainWindow(nullptr, nullptr, nullptr, nullptr, nullptr, parent) {
 }
 
 MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
                        oqt::application::EconomicDataExplorerQuery* economicQuery,
                        QWidget* parent)
-    : MainWindow(marketQuery, economicQuery, nullptr, nullptr, parent) {
+    : MainWindow(marketQuery, economicQuery, nullptr, nullptr, nullptr, parent) {
 }
 
 MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
@@ -234,11 +238,22 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
                        oqt::application::MarketInstrumentCatalogQuery* marketCatalog,
                        oqt::application::EconomicDatasetCatalogQuery* economicCatalog,
                        QWidget* parent)
+    : MainWindow(marketQuery, economicQuery, marketCatalog, economicCatalog,
+                 nullptr, parent) {
+}
+
+MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
+                       oqt::application::EconomicDataExplorerQuery* economicQuery,
+                       oqt::application::MarketInstrumentCatalogQuery* marketCatalog,
+                       oqt::application::EconomicDatasetCatalogQuery* economicCatalog,
+                       oqt::application::RefreshTaskController* refreshController,
+                       QWidget* parent)
     : QMainWindow(parent),
       m_marketQuery(marketQuery),
       m_economicQuery(economicQuery),
       m_marketCatalog(marketCatalog),
-      m_economicCatalog(economicCatalog) {
+      m_economicCatalog(economicCatalog),
+      m_refreshController(refreshController) {
     setObjectName("mainWindow");
     setWindowTitle("Open Quant Terminal");
     resize(1280, 800);
@@ -255,6 +270,34 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
         central
     );
     subtitle->setObjectName("welcomeSubtitle");
+
+    auto* taskLayout = new QHBoxLayout();
+    m_refreshTaskLabel = new QLabel(QStringLiteral("No refresh task running"), central);
+    m_refreshTaskLabel->setObjectName("refreshTaskStatus");
+    m_refreshProgress = new QProgressBar(central);
+    m_refreshProgress->setObjectName("refreshTaskProgress");
+    m_refreshProgress->setRange(0, 1);
+    m_refreshProgress->setValue(0);
+    m_refreshProgress->setTextVisible(false);
+    m_refreshProgress->setMaximumWidth(180);
+    m_cancelRefreshButton = new QPushButton(QStringLiteral("Cancel refresh"), central);
+    m_cancelRefreshButton->setObjectName("cancelRefreshButton");
+    m_cancelRefreshButton->setEnabled(false);
+    taskLayout->addWidget(m_refreshTaskLabel, 1);
+    taskLayout->addWidget(m_refreshProgress);
+    taskLayout->addWidget(m_cancelRefreshButton);
+    rootLayout->addLayout(taskLayout);
+    QObject::connect(m_cancelRefreshButton, &QPushButton::clicked, this, [this] {
+        if (!m_marketRequestId.isEmpty() && m_refreshController) {
+            m_marketCancelRequested = true;
+            m_refreshController->cancelMarketRefresh();
+        }
+        if (!m_economicRequestId.isEmpty() && m_refreshController) {
+            m_economicCancelRequested = true;
+            m_refreshController->cancelEconomicRefresh();
+        }
+        updateRefreshTaskUi();
+    });
 
     auto* tabs = new QTabWidget(central);
     tabs->setObjectName("workspaceTabs");
@@ -297,16 +340,22 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
     m_marketInstrument = new QLineEdit(QStringLiteral("AAPL"), marketPage);
     m_marketInstrument->setObjectName("marketInstrumentInput");
     m_marketInstrument->setPlaceholderText("Instrument ID");
+    QObject::connect(m_marketInstrument, &QLineEdit::textEdited, this,
+                     [this] { m_marketProviderSymbol.clear(); });
     m_marketInterval = new QLineEdit(QStringLiteral("1d"), marketPage);
     m_marketInterval->setObjectName("marketIntervalInput");
     m_marketInterval->setMaximumWidth(100);
     auto* marketLoad = new QPushButton(QStringLiteral("Load series"), marketPage);
+    m_marketRefreshButton = new QPushButton(QStringLiteral("Refresh from Yahoo"), marketPage);
+    m_marketRefreshButton->setObjectName("refreshMarketButton");
+    m_marketRefreshButton->setEnabled(m_refreshController != nullptr);
     marketLoad->setObjectName("loadMarketSeriesButton");
     marketLoad->setEnabled(m_marketQuery != nullptr);
     marketInputs->addWidget(m_marketProvider);
     marketInputs->addWidget(m_marketInstrument);
     marketInputs->addWidget(m_marketInterval);
     marketInputs->addWidget(marketLoad);
+    marketInputs->addWidget(m_marketRefreshButton);
     marketLayout->addLayout(marketInputs);
     m_marketSummary = new QLabel(
         m_marketQuery ? QStringLiteral("Enter the provider, instrument ID and interval for a stored series.")
@@ -325,6 +374,21 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
     m_marketTable->setObjectName("marketDataTable");
     marketLayout->addWidget(m_marketTable);
     QObject::connect(marketLoad, &QPushButton::clicked, this, [this] { loadMarketSeries(); });
+    QObject::connect(m_marketRefreshButton, &QPushButton::clicked, this, [this] {
+        if (!m_refreshController || !m_marketRequestId.isEmpty()) return;
+        const QString providerSymbol = m_marketProviderSymbol.isEmpty()
+            ? m_marketInstrument->text().trimmed() : m_marketProviderSymbol;
+        const QString requestId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        if (!m_refreshController->startMarketRefresh(
+                providerSymbol, m_marketInstrument->text().trimmed(),
+                m_marketInterval->text().trimmed(), requestId)) {
+            statusBar()->showMessage(QStringLiteral("Market refresh could not be started; check symbol and busy state"));
+            return;
+        }
+        m_marketRequestId = requestId;
+        m_marketCancelRequested = false;
+        updateRefreshTaskUi();
+    });
     tabs->addTab(marketPage, QStringLiteral("Market Explorer"));
 
     // Economic Explorer: FRED datasets already persisted by the ingestion pipeline.
@@ -366,11 +430,15 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
     m_economicDataset->setObjectName("economicDatasetInput");
     m_economicDataset->setPlaceholderText("Dataset ID");
     auto* economicLoad = new QPushButton(QStringLiteral("Load dataset"), economicPage);
+    m_economicRefreshButton = new QPushButton(QStringLiteral("Refresh from FRED"), economicPage);
+    m_economicRefreshButton->setObjectName("refreshEconomicButton");
+    m_economicRefreshButton->setEnabled(m_refreshController != nullptr);
     economicLoad->setObjectName("loadEconomicDatasetButton");
     economicLoad->setEnabled(m_economicQuery != nullptr);
     economicInputs->addWidget(m_economicProvider);
     economicInputs->addWidget(m_economicDataset);
     economicInputs->addWidget(economicLoad);
+    economicInputs->addWidget(m_economicRefreshButton);
     economicLayout->addLayout(economicInputs);
     m_economicSummary = new QLabel(
         m_economicQuery ? QStringLiteral("Enter the provider and dataset ID for a stored economic dataset.")
@@ -388,6 +456,20 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
     m_economicTable->setObjectName("economicDataTable");
     economicLayout->addWidget(m_economicTable);
     QObject::connect(economicLoad, &QPushButton::clicked, this, [this] { loadEconomicDataset(); });
+    QObject::connect(m_economicRefreshButton, &QPushButton::clicked, this, [this] {
+        if (!m_refreshController || !m_economicRequestId.isEmpty()) return;
+        const QString datasetId = m_economicDataset->text().trimmed();
+        const QString requestId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        QString error;
+        if (!m_refreshController->startEconomicRefresh(datasetId, requestId, &error)) {
+            statusBar()->showMessage(QStringLiteral("Economic refresh could not start: %1").arg(error));
+            m_refreshTaskLabel->setText(error);
+            return;
+        }
+        m_economicRequestId = requestId;
+        m_economicCancelRequested = false;
+        updateRefreshTaskUi();
+    });
     tabs->addTab(economicPage, QStringLiteral("Economic Data Explorer"));
 
     rootLayout->addWidget(title);
@@ -395,6 +477,14 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
     rootLayout->addWidget(tabs, 1);
     setCentralWidget(central);
     statusBar()->showMessage("Ready");
+    if (m_refreshController) {
+        QObject::connect(m_refreshController,
+                         &oqt::application::RefreshTaskController::marketRefreshFinished,
+                         this, &MainWindow::handleMarketRefreshFinished);
+        QObject::connect(m_refreshController,
+                         &oqt::application::RefreshTaskController::economicRefreshFinished,
+                         this, &MainWindow::handleEconomicRefreshFinished);
+    }
     loadCatalogSelectors();
 }
 
@@ -429,7 +519,7 @@ void MainWindow::loadMarketCatalogPage(qint64 offset) {
             .arg(entry.providerSymbol, entry.interval, entry.providerId)
             .arg(entry.candleCount);
         m_marketCatalogSelector->addItem(label, QVariantList{
-            entry.providerId, entry.instrumentId, entry.interval});
+            entry.providerId, entry.instrumentId, entry.interval, entry.providerSymbol});
     }
     m_marketCatalogSelector->setEnabled(!page->entries.isEmpty());
     m_marketCatalogPrevious->setEnabled(m_marketCatalogOffset > 0);
@@ -479,10 +569,11 @@ void MainWindow::loadEconomicCatalogPage(qint64 offset) {
 void MainWindow::selectMarketCatalogEntry(int index) {
     if (index <= 0 || !m_marketCatalogSelector) return;
     const QVariantList values = m_marketCatalogSelector->itemData(index).toList();
-    if (values.size() != 3) return;
+    if (values.size() < 3) return;
     m_marketProvider->setText(values.at(0).toString());
     m_marketInstrument->setText(values.at(1).toString());
     m_marketInterval->setText(values.at(2).toString());
+    m_marketProviderSymbol = values.size() > 3 ? values.at(3).toString() : QString();
     m_marketSummary->setText(QStringLiteral("Stored instrument selected. Load the series to inspect its data."));
 }
 
@@ -493,6 +584,84 @@ void MainWindow::selectEconomicCatalogEntry(int index) {
     m_economicProvider->setText(values.at(0).toString());
     m_economicDataset->setText(values.at(1).toString());
     m_economicSummary->setText(QStringLiteral("Stored dataset selected. Load the dataset to inspect its observations."));
+}
+
+void MainWindow::updateRefreshTaskUi() {
+    const bool marketActive = !m_marketRequestId.isEmpty();
+    const bool economicActive = !m_economicRequestId.isEmpty();
+    const bool active = marketActive || economicActive;
+    m_refreshProgress->setRange(0, active ? 0 : 1);
+    if (!active) m_refreshProgress->setValue(0);
+    m_cancelRefreshButton->setEnabled(active);
+    m_marketRefreshButton->setEnabled(m_refreshController && !marketActive);
+    m_economicRefreshButton->setEnabled(m_refreshController && !economicActive);
+    if (marketActive && economicActive) {
+        m_refreshTaskLabel->setText(QStringLiteral("Market and economic refresh running…"));
+    } else if (marketActive) {
+        m_refreshTaskLabel->setText(m_marketCancelRequested
+            ? QStringLiteral("Cancelling market refresh…")
+            : QStringLiteral("Refreshing market data…"));
+    } else if (economicActive) {
+        m_refreshTaskLabel->setText(m_economicCancelRequested
+            ? QStringLiteral("Cancelling economic refresh…")
+            : QStringLiteral("Refreshing economic data…"));
+    } else if (m_refreshTaskLabel->text().contains(QStringLiteral("running"))
+               || m_refreshTaskLabel->text().contains(QStringLiteral("Cancelling"))
+               || m_refreshTaskLabel->text().contains(QStringLiteral("Refreshing"))) {
+        m_refreshTaskLabel->setText(QStringLiteral("No refresh task running"));
+    }
+}
+
+void MainWindow::handleMarketRefreshFinished(
+    const QString& requestId, bool persisted, const QString& errorMessage,
+    const oqt::providers::AdapterResult& result) {
+    Q_UNUSED(result);
+    if (requestId != m_marketRequestId) return;
+    const bool cancelled = m_marketCancelRequested;
+    m_marketRequestId.clear();
+    m_marketCancelRequested = false;
+    if (persisted) {
+        m_refreshTaskLabel->setText(QStringLiteral("Market refresh completed and persisted"));
+        statusBar()->showMessage(QStringLiteral("Market refresh completed"));
+        loadMarketSeries();
+        loadMarketCatalogPage(m_marketCatalogOffset);
+    } else if (cancelled) {
+        m_refreshTaskLabel->setText(QStringLiteral("Market refresh cancelled"));
+        statusBar()->showMessage(QStringLiteral("Market refresh cancelled"));
+    } else {
+        const QString message = errorMessage.isEmpty()
+            ? QStringLiteral("Market refresh failed; provider returned no persisted data")
+            : errorMessage;
+        m_refreshTaskLabel->setText(QStringLiteral("Market refresh failed: %1").arg(message));
+        statusBar()->showMessage(QStringLiteral("Market refresh failed: %1").arg(message));
+    }
+    updateRefreshTaskUi();
+}
+
+void MainWindow::handleEconomicRefreshFinished(
+    const QString& requestId, bool persisted, const QString& errorMessage,
+    const oqt::providers::AdapterResult& result) {
+    Q_UNUSED(result);
+    if (requestId != m_economicRequestId) return;
+    const bool cancelled = m_economicCancelRequested;
+    m_economicRequestId.clear();
+    m_economicCancelRequested = false;
+    if (persisted) {
+        m_refreshTaskLabel->setText(QStringLiteral("Economic refresh completed and persisted"));
+        statusBar()->showMessage(QStringLiteral("Economic refresh completed"));
+        loadEconomicDataset();
+        loadEconomicCatalogPage(m_economicCatalogOffset);
+    } else if (cancelled) {
+        m_refreshTaskLabel->setText(QStringLiteral("Economic refresh cancelled"));
+        statusBar()->showMessage(QStringLiteral("Economic refresh cancelled"));
+    } else {
+        const QString message = errorMessage.isEmpty()
+            ? QStringLiteral("Economic refresh failed; provider returned no persisted data")
+            : errorMessage;
+        m_refreshTaskLabel->setText(QStringLiteral("Economic refresh failed: %1").arg(message));
+        statusBar()->showMessage(QStringLiteral("Economic refresh failed: %1").arg(message));
+    }
+    updateRefreshTaskUi();
 }
 
 void MainWindow::loadMarketSeries() {

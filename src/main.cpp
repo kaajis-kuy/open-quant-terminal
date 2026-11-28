@@ -4,6 +4,7 @@
 #include <QApplication>
 #include <QStatusBar>
 
+
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
     QApplication::setApplicationName("Open Quant Terminal");
@@ -16,7 +17,8 @@ int main(int argc, char* argv[]) {
     MainWindow window(composition.marketExplorerQuery(),
                        composition.economicDataExplorerQuery(),
                        composition.marketInstrumentCatalogQuery(),
-                       composition.economicDatasetCatalogQuery());
+                       composition.economicDatasetCatalogQuery(),
+                       &composition);
     const QString marketState = composition.marketStatus().available
         ? QStringLiteral("Market data: available")
         : QStringLiteral("Market data: disabled");

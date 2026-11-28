@@ -24,6 +24,7 @@ add_executable(open-quant-terminal
     src/app/AppCompositionRoot.h
     src/application/DataExplorerQueries.h
     src/application/CatalogQueries.h
+    src/application/RefreshTaskController.h
     src/core/data/CatalogData.h
     src/app/MainWindow.cpp
     src/app/MainWindow.h
@@ -91,6 +92,7 @@ if(OQT_BUILD_TESTS)
         src/app/MainWindow.h
         src/application/DataExplorerQueries.h
         src/application/CatalogQueries.h
+        src/application/RefreshTaskController.h
         src/core/data/CatalogData.h
     )
 
@@ -598,6 +600,7 @@ if(OQT_BUILD_TESTS)
         tests/tst_app_composition_root.cpp
         src/app/AppCompositionRoot.cpp
         src/app/AppCompositionRoot.h
+        src/application/RefreshTaskController.h
         src/core/services/FredEconomicRefreshService.cpp
         src/core/services/FredEconomicRefreshService.h
         src/core/services/YahooMarketDataRefreshService.cpp

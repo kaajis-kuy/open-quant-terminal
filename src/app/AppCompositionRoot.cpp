@@ -96,6 +96,9 @@ bool AppCompositionRoot::initialize(const AppCompositionConfig& config,
             m_yahooPipeline = std::make_unique<providers::YahooPipeline>();
             m_yahooRefresh = std::make_unique<services::YahooMarketDataRefreshService>(
                 *m_yahooPipeline, *m_marketIngestion);
+            connect(m_yahooRefresh.get(),
+                    &services::YahooMarketDataRefreshService::finished,
+                    this, &application::RefreshTaskController::marketRefreshFinished);
             m_marketExplorerQuery = std::make_unique<application::MarketExplorerQuery>(
                 [store = m_marketStore.get()](const QString& providerId,
                                               const QString& instrumentId,
@@ -131,6 +134,9 @@ bool AppCompositionRoot::initialize(const AppCompositionConfig& config,
             m_fredPipeline = std::make_unique<providers::FredPipeline>();
             m_fredRefresh = std::make_unique<services::FredEconomicRefreshService>(
                 *m_fredPipeline, *m_economicIngestion);
+            connect(m_fredRefresh.get(),
+                    &services::FredEconomicRefreshService::finished,
+                    this, &application::RefreshTaskController::economicRefreshFinished);
             m_economicDataExplorerQuery = std::make_unique<application::EconomicDataExplorerQuery>(
                 [store = m_economicStore.get()](const QString& providerId,
                                                 const QString& datasetId,
@@ -213,6 +219,33 @@ bool AppCompositionRoot::refreshEconomicData(
         errorMessage->clear();
     }
     return started;
+}
+
+bool AppCompositionRoot::startMarketRefresh(
+    const QString& providerSymbol, const QString& canonicalInstrumentId,
+    const QString& interval, const QString& requestId) {
+    if (!m_marketStatus.available || !m_yahooRefresh) return false;
+    providers::YahooChartRequest request;
+    request.symbol = providerSymbol.trimmed();
+    request.interval = interval.trimmed();
+    request.range = QStringLiteral("1y");
+    return m_yahooRefresh->refresh(request, canonicalInstrumentId, requestId);
+}
+
+bool AppCompositionRoot::startEconomicRefresh(
+    const QString& datasetId, const QString& requestId, QString* errorMessage) {
+    providers::FredObservationRequest request;
+    request.seriesId = datasetId.startsWith(QStringLiteral("fred."))
+        ? datasetId.mid(5) : datasetId;
+    return refreshEconomicData(std::move(request), datasetId, requestId, errorMessage);
+}
+
+void AppCompositionRoot::cancelMarketRefresh() {
+    if (m_yahooRefresh) m_yahooRefresh->cancel();
+}
+
+void AppCompositionRoot::cancelEconomicRefresh() {
+    if (m_fredRefresh) m_fredRefresh->cancel();
 }
 
 services::YahooMarketDataRefreshService* AppCompositionRoot::marketRefreshService() {

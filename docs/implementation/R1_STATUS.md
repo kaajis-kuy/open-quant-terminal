@@ -27,10 +27,24 @@
 - Economic Explorer renders numeric observations as time-series lines grouped by series ID.
 - Both charts consume the exact same application query results as their corresponding tables; no direct database/provider access was added to widgets.
 - UI regression test checks that both chart surfaces are present.
-- Exact-head CI for chart views is pending; this increment is not verified until its workflow completes.
+- Exact-head CI for chart views passed on `90deb7c964768be4902843a4f7df2665892cfa18` in run [#46133949762](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46133949762).
+
+## Refresh & task lifecycle increment
+
+- Added Yahoo market and FRED economic refresh actions to their respective explorers through the application-facing `RefreshTaskController` interface implemented by `AppCompositionRoot`.
+- Refresh operations remain asynchronous through the existing refresh services; UI does not invoke provider clients, refresh-service implementations, or storage directly.
+- Added a shared task status label, indeterminate activity progress indicator, and cancellation control.
+- Task lifecycle reports running, cancelling, completed-and-persisted, cancelled, and actionable failure states.
+- Completion reloads the relevant explorer and persisted catalog page.
+- FRED credentials continue to be read only inside AppCompositionRoot from `OQT_FRED_API_KEY`; the UI callback never receives or stores the secret.
+- Yahoo provider symbols from catalog entries are kept separate from canonical instrument IDs so persisted refreshes remain keyed consistently.
+- The current provider clients do not expose reliable byte/record progress events; the UI therefore uses an indeterminate progress indicator rather than inventing a percentage. More granular provider progress can be added when supported by the transport layer.
+- Added UI coverage for idle task status, disabled cancellation, disabled unavailable refresh actions, and progress indicator reset.
+- Exact-head CI for this increment is pending; do not claim verification until the workflow for the latest PR head passes.
 
 ## Remaining R1 work
-- Refresh controls and observable task state: progress, cancellation, completion, and actionable errors.
+- Broader mock-provider-to-storage-to-application integration tests.
+- UI smoke/regression tests and final exact-head CI/review.
 - Broader mock-provider-to-storage-to-application integration tests.
 - UI smoke/regression tests and final exact-head CI/review.
 
