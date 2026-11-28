@@ -146,6 +146,40 @@ private slots:
         QVERIFY(!error.isEmpty());
     }
 
+    void enablesWalForFileBackedEconomicDatabase() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath(QStringLiteral("wal-mode.sqlite"));
+
+        {
+            SqliteCanonicalDatasetStore store(path);
+            QString error;
+            QVERIFY2(store.open(&error), qPrintable(error));
+            QVERIFY(store.isOpen());
+        }
+
+        const QString connectionName = QStringLiteral("economic-wal-mode-check");
+        {
+            QSqlDatabase database = QSqlDatabase::addDatabase(
+                QStringLiteral("QSQLITE"), connectionName);
+            database.setDatabaseName(path);
+            QVERIFY(database.open());
+            QSqlQuery query(database);
+            QVERIFY2(query.exec(QStringLiteral("PRAGMA journal_mode")),
+                     qPrintable(query.lastError().text()));
+            QVERIFY(query.next());
+            QCOMPARE(query.value(0).toString().toLower(), QStringLiteral("wal"));
+            database.close();
+        }
+        QSqlDatabase::removeDatabase(connectionName);
+
+        // Reopening after the last connection closes must retain the file and WAL mode.
+        SqliteCanonicalDatasetStore reopened(path);
+        QString error;
+        QVERIFY2(reopened.open(&error), qPrintable(error));
+        QVERIFY(reopened.isOpen());
+    }
+
     void recoversAfterSchemaInitializationFailure() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
