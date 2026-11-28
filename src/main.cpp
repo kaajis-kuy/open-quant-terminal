@@ -4,7 +4,6 @@
 #include <QApplication>
 #include <QStatusBar>
 
-#include <utility>
 
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
@@ -19,15 +18,7 @@ int main(int argc, char* argv[]) {
                        composition.economicDataExplorerQuery(),
                        composition.marketInstrumentCatalogQuery(),
                        composition.economicDatasetCatalogQuery(),
-                       composition.marketRefreshService(),
-                       composition.economicRefreshService(),
-                       [&composition](const QString& datasetId, const QString& requestId,
-                                      QString* errorMessage) {
-                           oqt::providers::FredObservationRequest request;
-                           request.seriesId = datasetId.startsWith(QStringLiteral("fred."))
-                               ? datasetId.mid(5) : datasetId;
-                           return composition.refreshEconomicData(
-                               std::move(request), datasetId, requestId, errorMessage);
+                       &composition);
                        });
     const QString marketState = composition.marketStatus().available
         ? QStringLiteral("Market data: available")
