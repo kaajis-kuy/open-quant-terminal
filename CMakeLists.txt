@@ -465,6 +465,50 @@ if(OQT_BUILD_TESTS)
     )
 
     add_test(NAME tst_fred_pipeline COMMAND tst_fred_pipeline)
+
+    add_executable(tst_yahoo_market_data_refresh_service
+        tests/tst_yahoo_market_data_refresh_service.cpp
+        src/core/services/YahooMarketDataRefreshService.cpp
+        src/core/services/YahooMarketDataRefreshService.h
+        src/core/services/MarketDataIngestionService.cpp
+        src/core/services/MarketDataIngestionService.h
+        src/core/storage/SqliteMarketDataStore.cpp
+        src/core/storage/SqliteMarketDataStore.h
+        src/core/providers/YahooPipeline.cpp
+        src/core/providers/YahooPipeline.h
+        src/core/services/ProviderNormalizationService.cpp
+        src/core/services/ProviderNormalizationService.h
+        src/core/providers/YahooClient.cpp
+        src/core/providers/YahooClient.h
+        src/core/providers/YahooRequestBuilder.cpp
+        src/core/providers/YahooRequestBuilder.h
+        src/core/providers/YahooFinanceAdapter.cpp
+        src/core/providers/YahooFinanceAdapter.h
+        src/core/providers/ProviderAdapter.cpp
+        src/core/providers/ProviderAdapter.h
+        src/core/providers/ProviderResponse.cpp
+        src/core/providers/ProviderResponse.h
+        src/core/data/CanonicalData.cpp
+        src/core/data/CanonicalData.h
+        src/core/data/MarketData.cpp
+        src/core/data/MarketData.h
+    )
+
+    target_link_libraries(tst_yahoo_market_data_refresh_service
+        PRIVATE
+            Qt6::Test
+            Qt6::Core
+            Qt6::Network
+            Qt6::Sql
+    )
+
+    target_include_directories(tst_yahoo_market_data_refresh_service
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    add_test(NAME tst_yahoo_market_data_refresh_service
+             COMMAND tst_yahoo_market_data_refresh_service)
     set_tests_properties(tst_main_window PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     )
