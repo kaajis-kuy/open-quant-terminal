@@ -99,10 +99,15 @@ private slots:
         QVERIFY(composition.marketStatus().available);
         QVERIFY(!composition.economicStatus().available);
         QVERIFY(!composition.economicStatus().errorMessage.isEmpty());
+        QVERIFY(QFile::exists(composition.marketDatabasePath()));
         QVERIFY(composition.marketRefreshService() != nullptr);
         QVERIFY(composition.economicRefreshService() == nullptr);
         QVERIFY(composition.economicDataExplorerQuery() == nullptr);
         QVERIFY(composition.economicDatasetCatalogQuery() == nullptr);
+
+        const auto marketCatalog = composition.marketInstrumentCatalogQuery()->execute({}, 10, 0, &error);
+        QVERIFY2(marketCatalog.has_value(), qPrintable(error));
+        QVERIFY(marketCatalog->entries.isEmpty());
     }
 
     void marketDatabaseFailureDoesNotDisableEconomicModule() {
@@ -122,10 +127,16 @@ private slots:
         QVERIFY(composition.initialize(config, &error));
         QVERIFY(!composition.marketStatus().available);
         QVERIFY(composition.economicStatus().available);
+        QVERIFY(!composition.marketStatus().errorMessage.isEmpty());
+        QVERIFY(QFile::exists(composition.economicDatabasePath()));
         QVERIFY(composition.marketRefreshService() == nullptr);
         QVERIFY(composition.marketExplorerQuery() == nullptr);
         QVERIFY(composition.marketInstrumentCatalogQuery() == nullptr);
         QVERIFY(composition.economicRefreshService() != nullptr);
+
+        const auto economicCatalog = composition.economicDatasetCatalogQuery()->execute({}, 10, 0, &error);
+        QVERIFY2(economicCatalog.has_value(), qPrintable(error));
+        QVERIFY(economicCatalog->entries.isEmpty());
     }
 
     void rejectsDatabasePathCollision() {

@@ -59,6 +59,14 @@
 - Tests use loopback mock HTTP and temporary SQLite only; no live FRED API or credentials are required.
 - Exact-head CI for this increment is pending.
 
+## Degraded-mode isolation test increment in progress
+
+- Strengthened both one-database-failure composition tests: the surviving database file must be created, its corresponding refresh service must remain available, and its catalog read query must execute successfully.
+- The unavailable module must expose no refresh service, explorer query, or catalog query.
+- Uses temporary directories and a directory at the blocked database-file path to trigger deterministic SQLite open failure without relying on OS permission behavior.
+- No production code or schema changes; the increment verifies independent module startup and read availability.
+- Exact-head CI is pending.
+
 ## Remaining R1 work
 - Add broader application/composition integration and UI smoke/regression tests.
 - Run final exact-head CI and review all stacked PRs; no merge without maintainer approval.
