@@ -99,3 +99,31 @@ This is an implementation checkpoint, not an R1 completion claim. Pagination exa
 - CTest: 20/20 passed, 0 failed; total test time 7.11 seconds.
 - This supersedes the earlier pending status for the documentation commit. The trigger fix and PR #13 code are verified on the latest PR head.
 - Remaining R1 exit work is a final acceptance/review audit across the stacked PR series, checking current-head CI evidence and unresolved live-provider/licensing/runtime limitations. PRs remain unmerged; maintainer approval is required for any merge.
+
+
+## R1 acceptance audit — 2026-11-28
+
+### Stacked implementation verification
+
+- Reviewed PR metadata and dependency bases for PR #5 through #13. The implementation stack is linear: #5 -> #6 -> #7 -> #8 -> #9 -> #10 -> #11 -> #12 -> #13. All remain open and unmerged; #5 through #13 are Draft.
+- PR #13 head `868b10982692633a22ab7444776bb71842c382e3` contains the complete stacked implementation. Exact-head GitHub Actions run [#46155122522](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46155122522) passed Linux / Qt 6.8.3 setup, Configure, Build, and Run tests.
+- Independently inspected the job results for exact-head runs: PR #6 [#46131502733](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46131502733), PR #7 [#46133422695](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46133422695), PR #8 [#46133949762](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46133949762), PR #10 [#46136104316](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46136104316), PR #11 [#46137432383](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46137432383), PR #12 [#46138166744](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46138166744), and PR #13 [#46155122522](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46155122522): each Linux / Qt 6.8.3 job completed successfully, including Configure, Build, and Run tests.
+- PR #3 is a separate documentation/architecture PR targeting `main`; its exact-head run [#46128673864](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46128673864) passed. PR #5 also targets `main` and is not technically stacked on PR #3. Recommended eventual merge order is #3, then #5, then the dependent chain #6 through #13, subject to maintainer approval and fresh base/mergeability checks.
+- PR #9's standalone exact-head workflow run was not independently located in the available run lookup. Its code is included in the tested PR #13 integrated head; do not represent a separate PR #9 run as independently verified.
+
+### X230 verification
+
+- User ran `ctest --test-dir build-x230 -R '^tst_app_composition_root$' --output-on-failure`; screenshot confirms 1/1 target passed, 0 failed.
+- This includes both DB-failure isolation directions using temporary test directories. No real database was modified.
+- Prior X230 smoke evidence remains: configure/build, full CTest 20/20, GUI launch, Yahoo AAPL/1d refresh and persistence, FRED fred.gdp refresh and persistence using locally configured key, and offline reload of both datasets.
+
+### Scope limits / not yet acceptance claims
+
+- A manual GUI run with one deliberately unavailable database has not been performed. Automated composition-root and UI tests cover degraded mode; this is not equivalent to manual GUI fault injection.
+- This CI workflow validates Linux / Qt 6.8.3. X230 is Ubuntu 26.04 / Qt 6.10.2; the recorded local smoke test covers that target, but CI is not a matrix across all platforms/Qt versions.
+- Live provider checks are limited to the recorded Yahoo AAPL and FRED GDP samples. Broader provider reliability, entitlement/redistribution rights, and third-party data licensing are not established by CI.
+- R1 is not declared complete until the maintainer reviews the full stack, confirms merge order, and explicitly approves merges. No PR was merged in this audit.
+
+### CI trigger update
+
+- Workflow now runs on every push and every pull request target, plus manual `workflow_dispatch`. The trigger update is included in the passing PR #13 exact-head run above.
