@@ -416,6 +416,32 @@ bool SqliteCanonicalDatasetStore::upsertDataset(
 
 std::optional<oqt::data::CanonicalDataset> SqliteCanonicalDatasetStore::loadDataset(
     const QString& providerId, const QString& datasetId, QString* errorMessage) const {
+    return loadDatasetImpl(providerId, datasetId, 0, 0, errorMessage, nullptr);
+}
+
+std::optional<CanonicalDatasetPage> SqliteCanonicalDatasetStore::loadDatasetPage(
+    const QString& providerId, const QString& datasetId, qsizetype pageSize,
+    qint64 offset, QString* errorMessage) const {
+    constexpr qsizetype kMaximumPageSize = 5000;
+    if (pageSize <= 0 || pageSize > kMaximumPageSize) {
+        setError(errorMessage, QStringLiteral("pageSize must be between 1 and 5000"));
+        return std::nullopt;
+    }
+    if (offset < 0 || offset > std::numeric_limits<qint64>::max() - pageSize - 1) {
+        setError(errorMessage, QStringLiteral("offset is outside the supported range"));
+        return std::nullopt;
+    }
+    bool hasMore = false;
+    auto dataset = loadDatasetImpl(providerId, datasetId, pageSize, offset,
+                                   errorMessage, &hasMore);
+    if (!dataset) return std::nullopt;
+    return CanonicalDatasetPage{std::move(*dataset), hasMore, offset, pageSize};
+}
+
+std::optional<oqt::data::CanonicalDataset> SqliteCanonicalDatasetStore::loadDatasetImpl(
+    const QString& providerId, const QString& datasetId, qsizetype pageSize,
+    qint64 offset, QString* errorMessage, bool* hasMore) const {
+    if (hasMore) *hasMore = false;
     if (!isOpen()) {
         setError(errorMessage, QStringLiteral("database is not open"));
         return std::nullopt;
@@ -456,9 +482,16 @@ std::optional<oqt::data::CanonicalDataset> SqliteCanonicalDatasetStore::loadData
     observations.prepare(QStringLiteral(
         "SELECT series_id,period,value,unit,frequency,geography,seasonal_adjustment,measure_type,"
         "currency,base_currency,quote_currency,scale_multiplier,denominator "
-        "FROM economic_observations WHERE provider_id=? AND dataset_id=? ORDER BY series_id,period"));
+        "FROM economic_observations WHERE provider_id=? AND dataset_id=? "
+        "ORDER BY series_id,period,unit,frequency,geography,seasonal_adjustment,measure_type,"
+        "currency,base_currency,quote_currency,denominator");
+    if (pageSize > 0) observations.prepare(observations.lastQuery() + QStringLiteral(" LIMIT ? OFFSET ?"));
     observations.addBindValue(providerId);
     observations.addBindValue(datasetId);
+    if (pageSize > 0) {
+        observations.addBindValue(pageSize + 1);
+        observations.addBindValue(offset);
+    }
     if (!observations.exec()) {
         setError(errorMessage, sqlError(observations));
         return std::nullopt;
@@ -485,6 +518,10 @@ std::optional<oqt::data::CanonicalDataset> SqliteCanonicalDatasetStore::loadData
     if (!observations.lastError().text().isEmpty()) {
         setError(errorMessage, sqlError(observations));
         return std::nullopt;
+    }
+    if (pageSize > 0 && dataset.observations.size() > pageSize) {
+        if (hasMore) *hasMore = true;
+        dataset.observations.removeLast();
     }
 
     const QStringList validationErrors = dataset.validate();
