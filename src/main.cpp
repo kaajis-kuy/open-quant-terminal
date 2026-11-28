@@ -19,7 +19,6 @@ int main(int argc, char* argv[]) {
                        composition.marketInstrumentCatalogQuery(),
                        composition.economicDatasetCatalogQuery(),
                        &composition);
-                       });
     const QString marketState = composition.marketStatus().available
         ? QStringLiteral("Market data: available")
         : QStringLiteral("Market data: disabled");
