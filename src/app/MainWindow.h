@@ -14,6 +14,7 @@ class QLineEdit;
 class QComboBox;
 class QTableWidget;
 class QPushButton;
+class OqtChartWidget;
 
 class MainWindow final : public QMainWindow {
     Q_OBJECT
@@ -54,6 +55,7 @@ private:
     QLineEdit* m_marketInterval = nullptr;
     QTableWidget* m_marketTable = nullptr;
     QLabel* m_marketSummary = nullptr;
+    OqtChartWidget* m_marketChart = nullptr;
 
     QComboBox* m_economicCatalogSelector = nullptr;
     QPushButton* m_economicCatalogPrevious = nullptr;
@@ -65,4 +67,5 @@ private:
     QLineEdit* m_economicDataset = nullptr;
     QTableWidget* m_economicTable = nullptr;
     QLabel* m_economicSummary = nullptr;
+    OqtChartWidget* m_economicChart = nullptr;
 };
