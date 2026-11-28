@@ -5,6 +5,8 @@
 #include <QJsonArray>
 #include <QtTest>
 
+#include <utility>
+
 using namespace oqt::providers;
 
 namespace {
