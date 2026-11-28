@@ -20,6 +20,8 @@ qt_standard_project_setup()
 
 add_executable(open-quant-terminal
     src/main.cpp
+    src/app/AppCompositionRoot.cpp
+    src/app/AppCompositionRoot.h
     src/app/MainWindow.cpp
     src/app/MainWindow.h
     src/core/data/CanonicalData.cpp
@@ -30,6 +32,12 @@ add_executable(open-quant-terminal
     src/core/storage/SqliteMarketDataStore.h
     src/core/services/MarketDataIngestionService.cpp
     src/core/services/MarketDataIngestionService.h
+    src/core/services/EconomicDataIngestionService.cpp
+    src/core/services/EconomicDataIngestionService.h
+    src/core/services/FredEconomicRefreshService.cpp
+    src/core/services/FredEconomicRefreshService.h
+    src/core/storage/SqliteCanonicalDatasetStore.cpp
+    src/core/storage/SqliteCanonicalDatasetStore.h
     src/core/services/ProviderNormalizationService.cpp
     src/core/services/ProviderNormalizationService.h
     src/core/services/YahooMarketDataRefreshService.cpp
@@ -511,6 +519,126 @@ if(OQT_BUILD_TESTS)
 
     add_test(NAME tst_yahoo_market_data_refresh_service
              COMMAND tst_yahoo_market_data_refresh_service)
+
+    add_executable(tst_economic_data_ingestion_service
+        tests/tst_economic_data_ingestion_service.cpp
+        src/core/services/EconomicDataIngestionService.cpp
+        src/core/services/EconomicDataIngestionService.h
+        src/core/storage/SqliteCanonicalDatasetStore.cpp
+        src/core/storage/SqliteCanonicalDatasetStore.h
+        src/core/providers/ProviderAdapter.cpp
+        src/core/providers/ProviderAdapter.h
+        src/core/providers/ProviderResponse.cpp
+        src/core/providers/ProviderResponse.h
+        src/core/data/CanonicalData.cpp
+        src/core/data/CanonicalData.h
+        src/core/data/MarketData.cpp
+        src/core/data/MarketData.h
+    )
+
+    target_link_libraries(tst_economic_data_ingestion_service
+        PRIVATE
+            Qt6::Test
+            Qt6::Core
+            Qt6::Sql
+    )
+
+    target_include_directories(tst_economic_data_ingestion_service
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    add_test(NAME tst_economic_data_ingestion_service
+             COMMAND tst_economic_data_ingestion_service)
+
+    add_executable(tst_fred_economic_refresh_service
+        tests/tst_fred_economic_refresh_service.cpp
+        src/core/services/FredEconomicRefreshService.cpp
+        src/core/services/FredEconomicRefreshService.h
+        src/core/services/EconomicDataIngestionService.cpp
+        src/core/services/EconomicDataIngestionService.h
+        src/core/storage/SqliteCanonicalDatasetStore.cpp
+        src/core/storage/SqliteCanonicalDatasetStore.h
+        src/core/providers/FredPipeline.cpp
+        src/core/providers/FredPipeline.h
+        src/core/providers/FredClient.cpp
+        src/core/providers/FredClient.h
+        src/core/providers/FredRequestBuilder.cpp
+        src/core/providers/FredRequestBuilder.h
+        src/core/providers/FredAdapter.cpp
+        src/core/providers/FredAdapter.h
+        src/core/services/ProviderNormalizationService.cpp
+        src/core/services/ProviderNormalizationService.h
+        src/core/providers/ProviderAdapter.cpp
+        src/core/providers/ProviderAdapter.h
+        src/core/providers/ProviderResponse.cpp
+        src/core/providers/ProviderResponse.h
+        src/core/data/CanonicalData.cpp
+        src/core/data/CanonicalData.h
+        src/core/data/MarketData.cpp
+        src/core/data/MarketData.h
+    )
+
+    target_link_libraries(tst_fred_economic_refresh_service
+        PRIVATE Qt6::Test Qt6::Core Qt6::Network Qt6::Sql
+    )
+    target_include_directories(tst_fred_economic_refresh_service
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    add_test(NAME tst_fred_economic_refresh_service
+             COMMAND tst_fred_economic_refresh_service)
+
+    add_executable(tst_app_composition_root
+        tests/tst_app_composition_root.cpp
+        src/app/AppCompositionRoot.cpp
+        src/app/AppCompositionRoot.h
+        src/core/services/FredEconomicRefreshService.cpp
+        src/core/services/FredEconomicRefreshService.h
+        src/core/services/YahooMarketDataRefreshService.cpp
+        src/core/services/YahooMarketDataRefreshService.h
+        src/core/services/EconomicDataIngestionService.cpp
+        src/core/services/EconomicDataIngestionService.h
+        src/core/services/MarketDataIngestionService.cpp
+        src/core/services/MarketDataIngestionService.h
+        src/core/services/ProviderNormalizationService.cpp
+        src/core/services/ProviderNormalizationService.h
+        src/core/storage/SqliteCanonicalDatasetStore.cpp
+        src/core/storage/SqliteCanonicalDatasetStore.h
+        src/core/storage/SqliteMarketDataStore.cpp
+        src/core/storage/SqliteMarketDataStore.h
+        src/core/providers/FredPipeline.cpp
+        src/core/providers/FredPipeline.h
+        src/core/providers/FredClient.cpp
+        src/core/providers/FredClient.h
+        src/core/providers/FredRequestBuilder.cpp
+        src/core/providers/FredRequestBuilder.h
+        src/core/providers/FredAdapter.cpp
+        src/core/providers/FredAdapter.h
+        src/core/providers/YahooPipeline.cpp
+        src/core/providers/YahooPipeline.h
+        src/core/providers/YahooClient.cpp
+        src/core/providers/YahooClient.h
+        src/core/providers/YahooRequestBuilder.cpp
+        src/core/providers/YahooRequestBuilder.h
+        src/core/providers/YahooFinanceAdapter.cpp
+        src/core/providers/YahooFinanceAdapter.h
+        src/core/providers/ProviderAdapter.cpp
+        src/core/providers/ProviderAdapter.h
+        src/core/providers/ProviderResponse.cpp
+        src/core/providers/ProviderResponse.h
+        src/core/data/CanonicalData.cpp
+        src/core/data/CanonicalData.h
+        src/core/data/MarketData.cpp
+        src/core/data/MarketData.h
+    )
+    target_link_libraries(tst_app_composition_root
+        PRIVATE Qt6::Test Qt6::Core Qt6::Network Qt6::Sql
+    )
+    target_include_directories(tst_app_composition_root
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+    add_test(NAME tst_app_composition_root COMMAND tst_app_composition_root)
+
     set_tests_properties(tst_main_window PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     )
