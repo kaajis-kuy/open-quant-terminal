@@ -3,6 +3,7 @@
 #include "core/providers/YahooClient.h"
 #include "core/storage/SqliteMarketDataStore.h"
 
+#include <QHash>
 #include <QTemporaryDir>
 #include <QTcpServer>
 #include <QTcpSocket>
@@ -158,8 +159,7 @@ private slots:
             QStringLiteral("equity.aapl"),
             QStringLiteral("1d"),
             &error);
-        QVERIFY(stored.has_value());
-        QVERIFY(stored->bars.isEmpty());
+        QVERIFY(!stored.has_value());
     }
 };
 
