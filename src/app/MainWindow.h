@@ -2,14 +2,10 @@
 
 #include <QMainWindow>
 
-#include <functional>
 
 namespace oqt::providers { struct AdapterResult; }
 
-namespace oqt::services {
-class YahooMarketDataRefreshService;
-class FredEconomicRefreshService;
-}
+namespace oqt::application { class RefreshTaskController; }
 
 namespace oqt::application {
 class MarketExplorerQuery;
@@ -43,9 +39,7 @@ public:
                oqt::application::EconomicDataExplorerQuery* economicQuery,
                oqt::application::MarketInstrumentCatalogQuery* marketCatalog,
                oqt::application::EconomicDatasetCatalogQuery* economicCatalog,
-               oqt::services::YahooMarketDataRefreshService* marketRefresh,
-               oqt::services::FredEconomicRefreshService* economicRefresh,
-               std::function<bool(const QString&, const QString&, QString*)> economicRefreshStarter,
+               oqt::application::RefreshTaskController* refreshController,
                QWidget* parent = nullptr);
 
 private:
@@ -68,9 +62,7 @@ private:
     oqt::application::EconomicDataExplorerQuery* m_economicQuery = nullptr;
     oqt::application::MarketInstrumentCatalogQuery* m_marketCatalog = nullptr;
     oqt::application::EconomicDatasetCatalogQuery* m_economicCatalog = nullptr;
-    oqt::services::YahooMarketDataRefreshService* m_marketRefresh = nullptr;
-    oqt::services::FredEconomicRefreshService* m_economicRefresh = nullptr;
-    std::function<bool(const QString&, const QString&, QString*)> m_economicRefreshStarter;
+    oqt::application::RefreshTaskController* m_refreshController = nullptr;
     QString m_marketRequestId;
     QString m_marketProviderSymbol;
     QString m_economicRequestId;
