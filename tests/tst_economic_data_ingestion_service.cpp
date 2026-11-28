@@ -88,6 +88,8 @@ private slots:
             QVERIFY2(loaded.has_value(), qPrintable(error));
             QCOMPARE(loaded->observations.size(), qsizetype(2));
             QCOMPARE(*loaded->observations.at(0).value, 123.45);
+            QVERIFY(!loaded->observations.at(0).geography.isNull());
+            QCOMPARE(loaded->observations.at(0).geography, QStringLiteral(""));
             QVERIFY(!loaded->observations.at(1).value.has_value());
             QCOMPARE(loaded->quality.status, DataStatus::Partial);
             QVERIFY(loaded->quality.isPartial);
