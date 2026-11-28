@@ -1,6 +1,7 @@
 #include "app/MainWindow.h"
 
 #include "application/DataExplorerQueries.h"
+#include "application/CatalogQueries.h"
 
 #include <QHeaderView>
 #include <QComboBox>
