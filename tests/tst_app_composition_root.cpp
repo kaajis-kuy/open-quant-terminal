@@ -71,6 +71,14 @@ private slots:
         QVERIFY(composition.economicRefreshService() != nullptr);
         QVERIFY(composition.marketExplorerQuery() != nullptr);
         QVERIFY(composition.economicDataExplorerQuery() != nullptr);
+        QVERIFY(composition.marketInstrumentCatalogQuery() != nullptr);
+        QVERIFY(composition.economicDatasetCatalogQuery() != nullptr);
+        const auto marketCatalog = composition.marketInstrumentCatalogQuery()->execute({}, 10, 0, &error);
+        QVERIFY2(marketCatalog.has_value(), qPrintable(error));
+        QVERIFY(marketCatalog->entries.isEmpty());
+        const auto economicCatalog = composition.economicDatasetCatalogQuery()->execute({}, 10, 0, &error);
+        QVERIFY2(economicCatalog.has_value(), qPrintable(error));
+        QVERIFY(economicCatalog->entries.isEmpty());
     }
 
     void economicDatabaseFailureDoesNotDisableMarketModule() {
@@ -93,7 +101,7 @@ private slots:
         QVERIFY(!composition.economicStatus().errorMessage.isEmpty());
         QVERIFY(composition.marketRefreshService() != nullptr);
         QVERIFY(composition.economicRefreshService() == nullptr);
-        QVERIFY(composition.economicDataExplorerQuery() == nullptr);
+        QVERIFY(composition.economicDataExplorerQuery() == nullptr);\n        QVERIFY(composition.economicDatasetCatalogQuery() == nullptr);
     }
 
     void marketDatabaseFailureDoesNotDisableEconomicModule() {
@@ -114,7 +122,7 @@ private slots:
         QVERIFY(!composition.marketStatus().available);
         QVERIFY(composition.economicStatus().available);
         QVERIFY(composition.marketRefreshService() == nullptr);
-        QVERIFY(composition.marketExplorerQuery() == nullptr);
+        QVERIFY(composition.marketExplorerQuery() == nullptr);\n        QVERIFY(composition.marketInstrumentCatalogQuery() == nullptr);
         QVERIFY(composition.economicRefreshService() != nullptr);
     }
 
