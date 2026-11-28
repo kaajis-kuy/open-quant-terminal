@@ -3,6 +3,8 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QFile>
+#include <QFileInfo>
 #include <QSqlError>
 #include <QSqlQuery>
 #include <QUuid>
@@ -120,6 +122,92 @@ bool SqliteCanonicalDatasetStore::open(QString* errorMessage) {
 
 bool SqliteCanonicalDatasetStore::isOpen() const {
     return m_database.isValid() && m_database.isOpen();
+}
+
+bool SqliteCanonicalDatasetStore::verifyIntegrity(QString* errorMessage) const {
+    if (!isOpen()) {
+        setError(errorMessage, QStringLiteral("database is not open"));
+        return false;
+    }
+
+    QSqlQuery integrity(m_database);
+    if (!integrity.exec(QStringLiteral("PRAGMA integrity_check"))) {
+        setError(errorMessage, sqlError(integrity));
+        return false;
+    }
+
+    bool integrityOk = false;
+    QStringList integrityErrors;
+    while (integrity.next()) {
+        const QString result = integrity.value(0).toString();
+        if (result == QStringLiteral("ok")) {
+            integrityOk = true;
+        } else {
+            integrityErrors.append(result);
+        }
+    }
+    integrity.finish();
+    if (!integrityOk || !integrityErrors.isEmpty()) {
+        setError(errorMessage, integrityErrors.isEmpty()
+            ? QStringLiteral("SQLite integrity_check returned no result")
+            : integrityErrors.join(QStringLiteral("; ")));
+        return false;
+    }
+
+    QSqlQuery foreignKeys(m_database);
+    if (!foreignKeys.exec(QStringLiteral("PRAGMA foreign_key_check"))) {
+        setError(errorMessage, sqlError(foreignKeys));
+        return false;
+    }
+    if (foreignKeys.next()) {
+        const QString message = QStringLiteral(
+            "SQLite foreign-key violation in table '%1' at row %2 (parent '%3', constraint %4)")
+            .arg(foreignKeys.value(0).toString())
+            .arg(foreignKeys.value(1).toString())
+            .arg(foreignKeys.value(2).toString())
+            .arg(foreignKeys.value(3).toString());
+        setError(errorMessage, message);
+        return false;
+    }
+    return true;
+}
+
+bool SqliteCanonicalDatasetStore::backupTo(
+    const QString& destinationPath, QString* errorMessage) const {
+    if (!isOpen()) {
+        setError(errorMessage, QStringLiteral("database is not open"));
+        return false;
+    }
+
+    const QString destination = destinationPath.trimmed();
+    if (destination.isEmpty()) {
+        setError(errorMessage, QStringLiteral("backup destination path is required"));
+        return false;
+    }
+
+    const QString sourceAbsolute = QFileInfo(m_databasePath).absoluteFilePath();
+    const QString destinationAbsolute = QFileInfo(destination).absoluteFilePath();
+    if (sourceAbsolute == destinationAbsolute) {
+        setError(errorMessage, QStringLiteral("backup destination must differ from source database"));
+        return false;
+    }
+    if (QFile::exists(destinationAbsolute)) {
+        setError(errorMessage, QStringLiteral("backup destination already exists"));
+        return false;
+    }
+
+    // VACUUM INTO creates a consistent snapshot including committed WAL data.
+    QSqlQuery backup(m_database);
+    if (!backup.prepare(QStringLiteral("VACUUM INTO ?"))) {
+        setError(errorMessage, sqlError(backup));
+        return false;
+    }
+    backup.addBindValue(destinationAbsolute);
+    if (!backup.exec()) {
+        setError(errorMessage, sqlError(backup));
+        return false;
+    }
+    return true;
 }
 
 bool SqliteCanonicalDatasetStore::initializeSchema(QString* errorMessage) {
