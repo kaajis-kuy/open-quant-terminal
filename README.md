@@ -27,6 +27,7 @@ The initial application currently depends only on Qt Widgets. Python, database, 
 
 - [Project baseline](docs/PROJECT_BASELINE.md)
 - [ADR 0001 — Technology stack and upstream reuse boundary](docs/architecture/0001-technology-stack-and-reuse-boundary.md)
+- [ADR 0002 — Economic dataset persistence](docs/architecture/0002-economic-dataset-persistence.md)
 - [Build and test instructions](docs/BUILDING.md)
 
 ## Current implementation
@@ -36,7 +37,9 @@ The initial application currently depends only on Qt Widgets. Python, database, 
 - [x] Qt Test smoke cases for window identity, content, and status.
 - [x] Compile and execute tests in Linux CI with Qt 6.8.3.
 - [x] Provider response envelope decoder with deterministic tests.
-- [ ] First provider-backed data vertical slice (fixture first, live integration later).
+- [x] FRED canonical economic dataset SQLite store and provider-neutral ingestion service (build/test verification pending).
+- [x] Yahoo OHLCV SQLite store and refresh service (build/test verification pending for the latest branch).
+- [ ] Application-level composition and UI integration for persisted provider data.
 
 ## Development workflow
 
