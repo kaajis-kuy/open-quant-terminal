@@ -136,7 +136,7 @@ private:
         const qreal volumeTop = area.top() + area.height() * 0.72;
         const QRectF priceArea(area.left(), area.top(), area.width(), volumeTop - area.top());
         drawGrid(painter, priceArea);
-        const qreal step = priceArea.width() / qMax(1, m_bars.size());
+        const qreal step = priceArea.width() / qMax<qsizetype>(1, m_bars.size());
         const qreal candleWidth = qMax<qreal>(1.0, qMin<qreal>(12.0, step * 0.65));
         for (qsizetype i = 0; i < m_bars.size(); ++i) {
             const auto& bar = m_bars.at(i);
