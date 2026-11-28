@@ -24,6 +24,7 @@ add_executable(open-quant-terminal
     src/app/AppCompositionRoot.h
     src/application/DataExplorerQueries.h
     src/application/CatalogQueries.h
+    src/application/RefreshTaskController.h
     src/core/data/CatalogData.h
     src/app/MainWindow.cpp
     src/app/MainWindow.h
@@ -91,6 +92,7 @@ if(OQT_BUILD_TESTS)
         src/app/MainWindow.h
         src/application/DataExplorerQueries.h
         src/application/CatalogQueries.h
+        src/application/RefreshTaskController.h
         src/core/data/CatalogData.h
     )
 
