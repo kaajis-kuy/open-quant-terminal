@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/data/MarketData.h"
+#include "core/data/CatalogData.h"
 
 #include <QSqlDatabase>
 #include <QString>
@@ -56,6 +57,11 @@ public:
         const QDateTime& endExclusive,
         QString* errorMessage = nullptr,
         qsizetype maxBars = 0) const;
+
+    // Lists locally persisted provider/instrument/interval combinations; never contacts providers.
+    [[nodiscard]] std::optional<oqt::data::MarketInstrumentCatalogPage> loadInstrumentCatalog(
+        const QString& searchText = {}, qsizetype pageSize = 100, qint64 offset = 0,
+        QString* errorMessage = nullptr) const;
 
 private:
     [[nodiscard]] std::optional<oqt::data::CanonicalMarketSeries> loadSeriesImpl(
