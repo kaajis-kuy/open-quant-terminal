@@ -180,3 +180,12 @@ Do not start with AI agent orchestration, broker execution, a giant dashboard, a
 - Final static review and explicit merge approval.
 - Notion progress/tracker/audit/architecture/testing updated.
 - No claim of feature parity until each acceptance criterion is demonstrated.
+
+
+## Confirmed product objective — maximum practical feature parity
+
+**Accepted on 2026-11-28:** OQT targets the maximum practical functional feature parity with Fincept Terminal across its broad product surface, not only quant trading. The roadmap therefore covers market/economic research, dashboards, screening/equity research, portfolio, derivatives, backtesting/algo trading, crypto/alternative markets, news/intelligence, AI/agents/MCP, and workspace/data tooling, subject to per-domain audits, lawful provider/data access, and technical feasibility.
+
+R1 (Market Explorer + Economic Data Explorer) is the first foundation slice, not the final scope. Continue through the domain milestones and add follow-up work where the parity inventory reveals gaps. Full Feature Edition is the primary product and is built first; Lite Edition follows only after the full-feature baseline is stable and measured.
+
+Feature parity is assessed by demonstrated user workflows and acceptance criteria, not by matching directory names or counting screens. Enterprise-only Fincept capabilities and third-party provider access must be treated as separate entitlement/legal verification items; OQT must implement its own lawful equivalents where possible.
