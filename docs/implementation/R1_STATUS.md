@@ -31,8 +31,8 @@
 
 ## Refresh & task lifecycle increment
 
-- Added Yahoo market and FRED economic refresh actions to their respective explorers.
-- Refresh operations remain asynchronous through the existing refresh services; UI does not invoke provider clients or storage directly.
+- Added Yahoo market and FRED economic refresh actions to their respective explorers through the application-facing `RefreshTaskController` interface implemented by `AppCompositionRoot`.
+- Refresh operations remain asynchronous through the existing refresh services; UI does not invoke provider clients, refresh-service implementations, or storage directly.
 - Added a shared task status label, indeterminate activity progress indicator, and cancellation control.
 - Task lifecycle reports running, cancelling, completed-and-persisted, cancelled, and actionable failure states.
 - Completion reloads the relevant explorer and persisted catalog page.
