@@ -231,4 +231,12 @@ application::EconomicDataExplorerQuery* AppCompositionRoot::economicDataExplorer
     return m_economicDataExplorerQuery.get();
 }
 
+application::MarketInstrumentCatalogQuery* AppCompositionRoot::marketInstrumentCatalogQuery() {
+    return m_marketInstrumentCatalogQuery.get();
+}
+
+application::EconomicDatasetCatalogQuery* AppCompositionRoot::economicDatasetCatalogQuery() {
+    return m_economicDatasetCatalogQuery.get();
+}
+
 } // namespace oqt::app
