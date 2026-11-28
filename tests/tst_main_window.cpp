@@ -303,8 +303,13 @@ private slots:
     }
 
     void marketRefreshFailureShowsActionableErrorAndRestoresControls() {
+        oqt::application::MarketExplorerQuery marketQuery(
+            [](const QString&, const QString&, const QString&, qsizetype, qint64, QString*)
+                -> std::optional<oqt::application::QueryPage<oqt::data::CanonicalMarketSeries>> {
+                return std::nullopt;
+            });
         FakeRefreshTaskController controller;
-        MainWindow window(nullptr, nullptr, nullptr, nullptr, &controller);
+        MainWindow window(&marketQuery, nullptr, nullptr, nullptr, &controller);
         auto* refresh = window.findChild<QPushButton*>("refreshMarketButton");
         auto* cancel = window.findChild<QPushButton*>("cancelRefreshButton");
         auto* status = window.findChild<QLabel*>("refreshTaskStatus");
