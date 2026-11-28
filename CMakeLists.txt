@@ -32,6 +32,8 @@ add_executable(open-quant-terminal
     src/core/services/MarketDataIngestionService.h
     src/core/services/ProviderNormalizationService.cpp
     src/core/services/ProviderNormalizationService.h
+    src/core/services/YahooMarketDataRefreshService.cpp
+    src/core/services/YahooMarketDataRefreshService.h
     src/core/providers/ProviderResponse.cpp
     src/core/providers/ProviderResponse.h
     src/core/providers/ProviderAdapter.cpp
