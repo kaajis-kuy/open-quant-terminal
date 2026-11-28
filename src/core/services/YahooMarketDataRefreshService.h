@@ -19,6 +19,8 @@ public:
         QObject* parent = nullptr);
 
     [[nodiscard]] bool isBusy() const;
+    // Cancels the active provider request; completion still arrives via finished().
+    void cancel();
 
     // Starts an asynchronous fetch. Completion is reported after persistence.
     [[nodiscard]] bool refresh(
