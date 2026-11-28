@@ -20,8 +20,12 @@ QString sqlError(const QSqlQuery& query) {
     return query.lastError().text();
 }
 
+QString nonNullText(const QString& value) {
+    return value.isNull() ? QStringLiteral("") : value;
+}
+
 QString utcIso(const QDateTime& value) {
-    return value.isValid() ? value.toUTC().toString(Qt::ISODateWithMs) : QString();
+    return value.isValid() ? value.toUTC().toString(Qt::ISODateWithMs) : QStringLiteral("");
 }
 
 QJsonObject missingCountsToJson(const QHash<QString, qsizetype>& counts) {
@@ -213,8 +217,8 @@ bool SqliteCanonicalDatasetStore::upsertDataset(
     metadata.addBindValue(dataset.providerId);
     metadata.addBindValue(dataset.datasetId);
     metadata.addBindValue(dataset.schemaVersion);
-    metadata.addBindValue(dataset.provenance.sourceUrl);
-    metadata.addBindValue(dataset.provenance.attributionId);
+    metadata.addBindValue(nonNullText(dataset.provenance.sourceUrl));
+    metadata.addBindValue(nonNullText(dataset.provenance.attributionId));
     metadata.addBindValue(utcIso(dataset.provenance.retrievedAt));
     metadata.addBindValue(static_cast<int>(dataset.quality.status));
     metadata.addBindValue(dataset.quality.isPartial ? 1 : 0);
@@ -225,8 +229,7 @@ bool SqliteCanonicalDatasetStore::upsertDataset(
         stringsToJson(dataset.quality.warnings)).toJson(QJsonDocument::Compact)));
     // A default-constructed QString is null; persist an absent cursor as empty TEXT,
     // not SQL NULL, because next_page_cursor is declared NOT NULL.
-    metadata.addBindValue(dataset.quality.nextPageCursor.isNull()
-        ? QStringLiteral("") : dataset.quality.nextPageCursor);
+    metadata.addBindValue(nonNullText(dataset.quality.nextPageCursor));
     if (!metadata.exec()) {
         setError(errorMessage, sqlError(metadata));
         m_database.rollback();
@@ -248,15 +251,15 @@ bool SqliteCanonicalDatasetStore::upsertDataset(
         observation.bindValue(3, item.period.toString(Qt::ISODate));
         observation.bindValue(4, item.value.has_value() ? QVariant(*item.value) : QVariant());
         observation.bindValue(5, item.unit);
-        observation.bindValue(6, item.frequency);
-        observation.bindValue(7, item.geography);
-        observation.bindValue(8, item.seasonalAdjustment);
-        observation.bindValue(9, item.measureType);
-        observation.bindValue(10, item.currency);
-        observation.bindValue(11, item.baseCurrency);
-        observation.bindValue(12, item.quoteCurrency);
+        observation.bindValue(6, nonNullText(item.frequency));
+        observation.bindValue(7, nonNullText(item.geography));
+        observation.bindValue(8, nonNullText(item.seasonalAdjustment));
+        observation.bindValue(9, nonNullText(item.measureType));
+        observation.bindValue(10, nonNullText(item.currency));
+        observation.bindValue(11, nonNullText(item.baseCurrency));
+        observation.bindValue(12, nonNullText(item.quoteCurrency));
         observation.bindValue(13, item.scaleMultiplier);
-        observation.bindValue(14, item.denominator);
+        observation.bindValue(14, nonNullText(item.denominator));
         if (!observation.exec()) {
             setError(errorMessage, sqlError(observation));
             m_database.rollback();
@@ -291,9 +294,9 @@ bool SqliteCanonicalDatasetStore::upsertDataset(
         raw.addBindValue(rawResult->responseSchemaVersion);
         raw.addBindValue(utcIso(rawResult->fetchedAt));
         raw.addBindValue(QString::fromUtf8(payload.toJson(QJsonDocument::Compact)));
-        raw.addBindValue(rawResult->rawPayloadReference);
+        raw.addBindValue(nonNullText(rawResult->rawPayloadReference));
         raw.addBindValue(rawResult->redactedRequestArguments.join(QLatin1Char('\n')));
-        raw.addBindValue(rawResult->errorMessage);
+        raw.addBindValue(nonNullText(rawResult->errorMessage));
         if (!raw.exec()) {
             setError(errorMessage, sqlError(raw));
             m_database.rollback();
