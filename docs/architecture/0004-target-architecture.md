@@ -249,3 +249,17 @@ No proposal above is an accepted implementation decision until the maintainer ap
 - [OQT current MainWindow](https://github.com/kaajis-kuy/open-quant-terminal/blob/726cd6892638d6282b6c0aa135081056bde8f1e8/src/app/MainWindow.cpp)
 - [Fincept source tree at pinned revision](https://github.com/Fincept-Corporation/FinceptTerminal/tree/914134de5fd227fe66969c4591ac9ca7e461cdf4/fincept-qt/src)
 - [Fincept AGPL-3.0 license at pinned revision](https://github.com/Fincept-Corporation/FinceptTerminal/blob/914134de5fd227fe66969c4591ac9ca7e461cdf4/LICENSE)
+
+
+## 12. Confirmed product objective and architecture implications
+
+**Product objective accepted by the maintainer on 2026-11-28: maximum practical functional feature parity with Fincept Terminal.** OQT is intended as a broad self-hosted terminal alternative, not a quant-trading-only tool. The architecture and roadmap must therefore support the complete domain surface inventoried in the Phase 1 parity matrix, including market/economics, equity research, portfolio, derivatives, backtesting/algo trading, crypto/alternative markets, news/intelligence, AI/agents/MCP, and workspace/data tooling where feasible.
+
+Implications:
+- Preserve clear domain boundaries so the broad feature set can grow without turning the desktop app into one tightly coupled module.
+- Prioritize shared primitives (instrument/dataset identity, provider contracts, query/read models, chart/table view models, task lifecycle, provenance and permissions) that unlock multiple feature domains.
+- Implement capability-by-capability with targeted source, provider, data-rights and behavior audits; do not infer parity or availability from Fincept folder names.
+- Reimplement independently using OQT-owned code and lawful integrations; do not copy protected source/assets/branding or bypass Enterprise/provider access controls.
+- Build Full Feature Edition first; Lite is a later resource profile sharing the same domain contracts.
+
+This accepted product objective does not automatically accept technical proposals P-ARCH-01 through P-ARCH-07. Their implementation details remain subject to separate maintainer review. The current first-slice recommendation (Market Explorer + Economic Data Explorer) remains a foundation milestone, not a narrowing of the final product scope.
