@@ -288,13 +288,13 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
     taskLayout->addWidget(m_cancelRefreshButton);
     rootLayout->addLayout(taskLayout);
     QObject::connect(m_cancelRefreshButton, &QPushButton::clicked, this, [this] {
-        if (!m_marketRequestId.isEmpty() && m_marketRefresh) {
+        if (!m_marketRequestId.isEmpty() && m_refreshController) {
             m_marketCancelRequested = true;
-            m_marketRefresh->cancel();
+            m_refreshController->cancelMarketRefresh();
         }
-        if (!m_economicRequestId.isEmpty() && m_economicRefresh) {
+        if (!m_economicRequestId.isEmpty() && m_refreshController) {
             m_economicCancelRequested = true;
-            m_economicRefresh->cancel();
+            m_refreshController->cancelEconomicRefresh();
         }
         updateRefreshTaskUi();
     });
@@ -375,14 +375,13 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
     marketLayout->addWidget(m_marketTable);
     QObject::connect(marketLoad, &QPushButton::clicked, this, [this] { loadMarketSeries(); });
     QObject::connect(m_marketRefreshButton, &QPushButton::clicked, this, [this] {
-        if (!m_marketRefresh || m_marketRefresh->isBusy() || !m_marketRequestId.isEmpty()) return;
-        oqt::providers::YahooChartRequest request;
-        request.symbol = m_marketProviderSymbol.isEmpty()
+        if (!m_refreshController || !m_marketRequestId.isEmpty()) return;
+        const QString providerSymbol = m_marketProviderSymbol.isEmpty()
             ? m_marketInstrument->text().trimmed() : m_marketProviderSymbol;
-        request.interval = m_marketInterval->text().trimmed();
-        request.range = QStringLiteral("1y");
         const QString requestId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-        if (!m_refreshController->startMarketRefresh(providerSymbol,\n                m_marketInstrument->text().trimmed(), m_marketInterval->text().trimmed(), requestId)) {
+        if (!m_refreshController->startMarketRefresh(
+                providerSymbol, m_marketInstrument->text().trimmed(),
+                m_marketInterval->text().trimmed(), requestId)) {
             statusBar()->showMessage(QStringLiteral("Market refresh could not be started; check symbol and busy state"));
             return;
         }
@@ -433,8 +432,7 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
     auto* economicLoad = new QPushButton(QStringLiteral("Load dataset"), economicPage);
     m_economicRefreshButton = new QPushButton(QStringLiteral("Refresh from FRED"), economicPage);
     m_economicRefreshButton->setObjectName("refreshEconomicButton");
-    m_economicRefreshButton->setEnabled(m_economicRefresh != nullptr
-                                        && static_cast<bool>(m_economicRefreshStarter));
+    m_economicRefreshButton->setEnabled(m_refreshController != nullptr);
     economicLoad->setObjectName("loadEconomicDatasetButton");
     economicLoad->setEnabled(m_economicQuery != nullptr);
     economicInputs->addWidget(m_economicProvider);
@@ -459,8 +457,7 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
     economicLayout->addWidget(m_economicTable);
     QObject::connect(economicLoad, &QPushButton::clicked, this, [this] { loadEconomicDataset(); });
     QObject::connect(m_economicRefreshButton, &QPushButton::clicked, this, [this] {
-        if (!m_economicRefresh || !m_economicRefreshStarter
-            || m_economicRefresh->isBusy() || !m_economicRequestId.isEmpty()) return;
+        if (!m_refreshController || !m_economicRequestId.isEmpty()) return;
         const QString datasetId = m_economicDataset->text().trimmed();
         const QString requestId = QUuid::createUuid().toString(QUuid::WithoutBraces);
         QString error;
@@ -480,12 +477,12 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
     rootLayout->addWidget(tabs, 1);
     setCentralWidget(central);
     statusBar()->showMessage("Ready");
-    if (m_marketRefresh) {
-        QObject::connect(m_marketRefresh, &oqt::services::YahooMarketDataRefreshService::finished,
+    if (m_refreshController) {
+        QObject::connect(m_refreshController,
+                         &oqt::application::RefreshTaskController::marketRefreshFinished,
                          this, &MainWindow::handleMarketRefreshFinished);
-    }
-    if (m_economicRefresh) {
-        QObject::connect(m_economicRefresh, &oqt::services::FredEconomicRefreshService::finished,
+        QObject::connect(m_refreshController,
+                         &oqt::application::RefreshTaskController::economicRefreshFinished,
                          this, &MainWindow::handleEconomicRefreshFinished);
     }
     loadCatalogSelectors();
