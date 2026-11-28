@@ -1038,6 +1038,43 @@ private slots:
             .arg(barCount).arg(saveElapsedMs).arg(barsPerSecond, 0, 'f', 0);
     }
 
+    void listsPersistedMarketSeriesWithAggregatesAndPaging() {
+        SqliteMarketDataStore store(QStringLiteral(":memory:"));
+        QString error;
+        QVERIFY2(store.open(&error), qPrintable(error));
+
+        CanonicalMarketSeries first = sampleSeries();
+        QVERIFY2(store.saveSeries(first, &error), qPrintable(error));
+        CanonicalMarketSeries second = sampleSeries();
+        second.instrumentId = QStringLiteral("equity.msft");
+        second.providerSymbol = QStringLiteral("MSFT");
+        second.interval = QStringLiteral("1h");
+        second.bars.removeLast();
+        QVERIFY2(store.saveSeries(second, &error), qPrintable(error));
+
+        const auto page = store.loadInstrumentCatalog({}, 1, 0, &error);
+        QVERIFY2(page.has_value(), qPrintable(error));
+        QCOMPARE(page->entries.size(), qsizetype(1));
+        QCOMPARE(page->entries.first().instrumentId, QStringLiteral("equity.aapl"));
+        QCOMPARE(page->entries.first().candleCount, qint64(2));
+        QCOMPARE(page->entries.first().latestCandleAt, first.bars.last().timestamp);
+        QVERIFY(page->hasMore);
+
+        const auto filtered = store.loadInstrumentCatalog(QStringLiteral("MSFT"), 10, 0, &error);
+        QVERIFY2(filtered.has_value(), qPrintable(error));
+        QCOMPARE(filtered->entries.size(), qsizetype(1));
+        QCOMPARE(filtered->entries.first().providerSymbol, QStringLiteral("MSFT"));
+        QVERIFY(!filtered->hasMore);
+
+        const auto empty = store.loadInstrumentCatalog(QStringLiteral("not-found"), 10, 0, &error);
+        QVERIFY2(empty.has_value(), qPrintable(error));
+        QVERIFY(empty->entries.isEmpty());
+
+        error.clear();
+        QVERIFY(!store.loadInstrumentCatalog({}, 0, 0, &error));
+        QVERIFY(error.contains(QStringLiteral("page size")));
+    }
+
     void rejectsInvalidSeriesWithoutWriting() {
         SqliteMarketDataStore store(QStringLiteral(":memory:"));
         QString error;
