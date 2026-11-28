@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - 'feature/**'
   pull_request:
     branches:
       - main
@@ -12,9 +13,8 @@ on:
 permissions:
   contents: read
 
-# A branch with an open PR is validated by pull_request/synchronize.
-# Avoid duplicate push runs for feature branches and cancel obsolete runs
-# when newer commits arrive for the same PR or branch.
+# Feature branches are validated on push; pull_request checks validate PRs targeting main.
+# Cancel obsolete runs when newer commits arrive for the same PR or branch.
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
