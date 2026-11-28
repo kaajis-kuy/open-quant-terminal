@@ -1,7 +1,7 @@
 # OQT Development Roadmap — Full-Feature Baseline
 
 - Date: 2026-11-28
-- Status: Proposed; sequence depends on approval of Phase 2 architecture.
+- Status: Architecture approved; R1 implementation in progress.
 - Baseline: main `726cd6892638d6282b6c0aa135081056bde8f1e8`.
 - Product rule: full-feature edition first; Lite Edition follows after the baseline is stable and measured.
 
@@ -27,7 +27,7 @@
 Exit criteria: license/policy decisions documented; workflow and docs match actual repository; no source-code implementation required for the policy decisions.
 
 ### R1 — Application query boundary and first research workflows
-**Priority: P1 / first implementation milestone**
+**Priority: P1 / IN PROGRESS — architecture approved 2026-11-28**
 - Add application-level query/use-case boundary for existing market and economic read methods.
 - Add instrument/dataset selection model and bounded query requests.
 - Expose refresh service state, progress, cancellation and errors to application layer.
@@ -149,12 +149,12 @@ Exit criteria: measured resource targets and a documented compatibility matrix.
 
 ## First implementation slice recommendation
 
-Start with R1, but keep it narrowly scoped:
-1. Define application query/use-case interfaces for existing market and economic storage.
+R1 is authorized. Deliver it in reviewable increments:
+1. Define application query/use-case interfaces for existing market and economic storage. (in progress)
 2. Define refresh task state/progress/cancel contract.
-3. Add a minimal navigation shell.
-4. Deliver Market Explorer and Economic Data Explorer.
-5. Add application integration tests and UI smoke tests.
+3. Add a minimal navigation shell. (initial explorer tabs implemented)
+4. Deliver Market Explorer and Economic Data Explorer. (initial read-only tables implemented; refresh/chart/catalog work remains)
+5. Add application integration tests and UI smoke tests. (initial query and UI tests added)
 
 Do not start with AI agent orchestration, broker execution, a giant dashboard, a microservice split or a database migration to TimescaleDB.
 
