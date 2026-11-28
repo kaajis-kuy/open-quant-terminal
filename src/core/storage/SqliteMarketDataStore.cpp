@@ -711,4 +711,78 @@ std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSerie
     return series;
 }
 
+
+std::optional<oqt::data::MarketInstrumentCatalogPage>
+SqliteMarketDataStore::loadInstrumentCatalog(
+    const QString& searchText, qsizetype pageSize, qint64 offset,
+    QString* errorMessage) const {
+    constexpr qsizetype kMaximumPageSize = 500;
+    if (pageSize <= 0 || pageSize > kMaximumPageSize || offset < 0
+        || offset > std::numeric_limits<qint64>::max() - pageSize - 1) {
+        setError(errorMessage, QStringLiteral("catalog page size must be 1..500 and offset must be non-negative"));
+        return std::nullopt;
+    }
+    if (!isOpen()) {
+        setError(errorMessage, QStringLiteral("database is not open"));
+        return std::nullopt;
+    }
+
+    const QString filter = searchText.trimmed();
+    const QString pattern = filter.isEmpty() ? QStringLiteral("") : QStringLiteral("%") + filter + QStringLiteral("%");
+    QSqlQuery query(m_database);
+    query.prepare(QStringLiteral(
+        "SELECT s.provider_id,s.instrument_id,s.provider_symbol,s.interval,"
+        "COALESCE(s.currency,''),COUNT(b.timestamp_ms),MAX(b.timestamp_ms),"
+        "COALESCE(s.source_url,''),COALESCE(s.retrieved_at,''),s.quality_status,"
+        "s.is_partial,s.is_truncated "
+        "FROM market_series s LEFT JOIN market_bars b "
+        "ON b.provider_id=s.provider_id AND b.instrument_id=s.instrument_id AND b.interval=s.interval "
+        "WHERE (?='' OR s.provider_id LIKE ? OR s.instrument_id LIKE ? "
+        "OR s.provider_symbol LIKE ? OR s.interval LIKE ?) "
+        "GROUP BY s.provider_id,s.instrument_id,s.interval "
+        "ORDER BY s.provider_id ASC,s.instrument_id ASC,s.interval ASC LIMIT ? OFFSET ?"));
+    query.addBindValue(filter);
+    query.addBindValue(pattern);
+    query.addBindValue(pattern);
+    query.addBindValue(pattern);
+    query.addBindValue(pattern);
+    query.addBindValue(pageSize + 1);
+    query.addBindValue(offset);
+    if (!query.exec()) {
+        setError(errorMessage, sqlError(query));
+        return std::nullopt;
+    }
+
+    oqt::data::MarketInstrumentCatalogPage page;
+    page.offset = offset;
+    page.pageSize = pageSize;
+    while (query.next()) {
+        oqt::data::MarketInstrumentCatalogEntry entry;
+        entry.providerId = query.value(0).toString();
+        entry.instrumentId = query.value(1).toString();
+        entry.providerSymbol = query.value(2).toString();
+        entry.interval = query.value(3).toString();
+        entry.currency = query.value(4).toString();
+        entry.candleCount = query.value(5).toLongLong();
+        if (!query.isNull(6))
+            entry.latestCandleAt = QDateTime::fromMSecsSinceEpoch(query.value(6).toLongLong(), QTimeZone::UTC);
+        entry.sourceUrl = query.value(7).toString();
+        entry.retrievedAt = QDateTime::fromString(query.value(8).toString(), Qt::ISODateWithMs);
+        entry.qualityStatus = static_cast<oqt::data::DataStatus>(query.value(9).toInt());
+        entry.isPartial = query.value(10).toBool();
+        entry.isTruncated = query.value(11).toBool();
+        page.entries.append(std::move(entry));
+    }
+    if (query.lastError().isValid()) {
+        setError(errorMessage, sqlError(query));
+        return std::nullopt;
+    }
+    if (page.entries.size() > pageSize) {
+        page.hasMore = true;
+        page.entries.removeLast();
+    }
+    if (errorMessage) errorMessage->clear();
+    return page;
+}
+
 } // namespace oqt::storage
