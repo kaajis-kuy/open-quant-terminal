@@ -1,5 +1,6 @@
 #include "core/services/EconomicDataIngestionService.h"
 
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QTemporaryDir>
 #include <QtTest>
