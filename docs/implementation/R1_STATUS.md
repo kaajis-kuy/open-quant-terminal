@@ -13,14 +13,16 @@
 ## Next increment: persisted catalog discovery
 
 - Contract documented in [0004-catalog-discovery.md](../architecture/0004-catalog-discovery.md).
-- Add SQL-backed market instrument catalog and economic dataset catalog using aggregate queries over persisted metadata/observations.
-- Add application read models and composition-root wiring; UI must remain isolated from stores/providers.
-- Add catalog-backed selectors to the existing explorers and deterministic storage/application/UI tests.
-- Catalog discovery is local-only and read-only; it must not make provider network requests.
+- Implemented SQL-backed market instrument and economic dataset catalog queries using aggregate reads over persisted metadata/observations.
+- Added catalog data models, bounded 1..500 paging, stable ordering, bound search parameters, and hasMore metadata.
+- Added application catalog query boundaries and AppCompositionRoot wiring, preserving the UI/storage/provider separation.
+- Added storage tests for counts, date ranges, search filtering, empty results and invalid page bounds; added composition/degraded-mode tests.
+- Exact-head CI for the catalog implementation is pending on PR #7. UI selectors are not yet wired; do not claim catalog UX complete.
+- Catalog discovery is local-only and read-only; it makes no provider network requests.
 
 ## Remaining R1 work
 
-- Instrument and economic dataset catalog implementation.
+- Catalog-backed selectors and selection-to-explorer wiring.
 - Chart views backed by the same paged query models as the tables.
 - Refresh controls and observable task state: progress, cancellation, completion, and actionable errors.
 - Broader mock-provider-to-storage-to-application integration tests.
