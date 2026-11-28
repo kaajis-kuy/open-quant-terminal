@@ -206,3 +206,12 @@ Recommended next audit slices:
 - [Trading and execution source](https://github.com/Fincept-Corporation/FinceptTerminal/tree/914134de5fd227fe66969c4591ac9ca7e461cdf4/fincept-qt/src/trading)
 - [Algorithm engine source](https://github.com/Fincept-Corporation/FinceptTerminal/tree/914134de5fd227fe66969c4591ac9ca7e461cdf4/fincept-qt/src/algo_engine)
 - [OQT main baseline](https://github.com/kaajis-kuy/open-quant-terminal/tree/726cd6892638d6282b6c0aa135081056bde8f1e8)
+
+
+## 7. Confirmed OQT product objective
+
+**Accepted objective (2026-11-28): maximum practical functional feature parity with Fincept Terminal.** OQT's scope is the broad terminal product surface, not quant trading alone. The parity target includes the domains inventoried above: market/economics, screening and equity research, portfolio, derivatives, backtesting/algo trading, crypto and alternative markets, news/intelligence, AI/agents/MCP, and workspace/data tooling where feasible.
+
+This is a functional capability target, not a commitment to copy Fincept's source code, protected assets, branding, private services, Enterprise entitlements, or provider access. Each feature must be independently implemented and validated against lawful data/provider terms. Keep the parity matrix as the source for feature-level status; do not claim parity based on directory presence alone.
+
+Full Feature Edition is built first. Lite Edition follows after the full-feature baseline is stable and is optimized as a resource profile without prematurely reducing the primary product scope.
