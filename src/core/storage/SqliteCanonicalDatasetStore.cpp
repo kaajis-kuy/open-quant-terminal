@@ -9,6 +9,7 @@
 #include <QSqlQuery>
 #include <QUuid>
 
+#include <algorithm>
 #include <limits>
 #include <utility>
 
@@ -484,8 +485,9 @@ std::optional<oqt::data::CanonicalDataset> SqliteCanonicalDatasetStore::loadData
         "SELECT series_id,period,value,unit,frequency,geography,seasonal_adjustment,measure_type,"
         "currency,base_currency,quote_currency,scale_multiplier,denominator "
         "FROM economic_observations WHERE provider_id=? AND dataset_id=? "
-        "ORDER BY series_id,period,unit,frequency,geography,seasonal_adjustment,measure_type,"
-        "currency,base_currency,quote_currency,denominator");
+        "ORDER BY series_id DESC,period DESC,unit DESC,frequency DESC,geography DESC,"
+        "seasonal_adjustment DESC,measure_type DESC,currency DESC,base_currency DESC,"
+        "quote_currency DESC,denominator DESC");
     if (pageSize > 0) observationsSql += QStringLiteral(" LIMIT ? OFFSET ?");
     observations.prepare(observationsSql);
     observations.addBindValue(providerId);
@@ -525,6 +527,10 @@ std::optional<oqt::data::CanonicalDataset> SqliteCanonicalDatasetStore::loadData
         if (hasMore) *hasMore = true;
         dataset.observations.removeLast();
     }
+
+    // Start with the newest stable-key slice, then restore ascending order within
+    // each returned page for downstream tables and chart series.
+    std::reverse(dataset.observations.begin(), dataset.observations.end());
 
     const QStringList validationErrors = dataset.validate();
     if (!validationErrors.isEmpty()) {
