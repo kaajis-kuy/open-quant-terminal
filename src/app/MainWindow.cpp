@@ -594,9 +594,7 @@ void MainWindow::updateRefreshTaskUi() {
     if (!active) m_refreshProgress->setValue(0);
     m_cancelRefreshButton->setEnabled(active);
     m_marketRefreshButton->setEnabled(m_refreshController && !marketActive);
-    m_economicRefreshButton->setEnabled(m_economicRefresh
-                                        && static_cast<bool>(m_economicRefreshStarter)
-                                        && !economicActive);
+    m_economicRefreshButton->setEnabled(m_refreshController && !economicActive);
     if (marketActive && economicActive) {
         m_refreshTaskLabel->setText(QStringLiteral("Market and economic refresh running…"));
     } else if (marketActive) {
