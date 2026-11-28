@@ -44,20 +44,20 @@ The current vertical slice uses Qt Widgets, Network, and SQL. SQLite market and 
 - [x] FRED refresh orchestration from provider pipeline through canonical SQLite persistence (verified).
 - [x] Full build and integration-test verification on the updated branch.
 
-Latest verification for commit `b0884c2828a4a6f918dadeb03eb47d482c6f67ad`:
-- Local X230 run: 20/20 tests passed.
-- GitHub Actions run [#282](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46122625087): Linux / Qt 6.8.3 configure, build, and test jobs succeeded.
+Verification evidence:
+- Local X230 verification for the Session 97 implementation: 20/20 tests passed.
+- GitHub Actions run [#286](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46124352594) completed successfully on implementation commit 6bc55592941f55052c2ca360910ed88a7b8f162d, with PR base main: Configure, Build, and Run tests all passed.
 
 ## Runtime configuration
 
-- Application data is stored under Qt `QStandardPaths::AppDataLocation`.
-- Market OHLCV data uses `market-data.sqlite`; economic observations use `economic-data.sqlite`.
-- Configure the FRED key as `OQT_FRED_API_KEY` in the process environment before requesting an economic refresh. The application reads it at refresh time and does not persist or log it.
+- Application data is stored under Qt QStandardPaths::AppDataLocation.
+- Market OHLCV data uses market-data.sqlite; economic observations use economic-data.sqlite.
+- Configure the FRED key as OQT_FRED_API_KEY in the process environment before requesting an economic refresh. The application reads it at refresh time and does not persist or log it.
 - If one SQLite module fails to initialize, the other module remains available and the desktop shell continues in degraded mode.
 
 ## Development workflow
 
-- Work on feature branches; keep `main` stable.
+- Work on feature branches; keep main stable.
 - Add tests for pure request construction, parsing, adapters, and domain logic.
 - Use deterministic fixtures for unit tests; do not require live provider APIs.
 - Never commit API keys, tokens, personal data, or local machine configuration.
@@ -65,6 +65,6 @@ Latest verification for commit `b0884c2828a4a6f918dadeb03eb47d482c6f67ad`:
 
 ## Reference
 
-The initial feature and behavior audit references [Fincept Terminal](https://github.com/Fincept-Corporation/FinceptTerminal) at source revision `914134de5fd227fe66969c4591ac9ca7e461cdf4`. The reference is not a claim of code reuse or product affiliation.
+The initial feature and behavior audit references [Fincept Terminal](https://github.com/Fincept-Corporation/FinceptTerminal) at source revision 914134de5fd227fe66969c4591ac9ca7e461cdf4. The reference is not a claim of code reuse or product affiliation.
 
 Review the upstream license and all applicable provider/data licenses before reusing code, assets, branding, or redistributing data. The upstream root license at the audited revision is AGPL-3.0.
