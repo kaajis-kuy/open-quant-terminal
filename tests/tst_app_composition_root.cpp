@@ -3,6 +3,7 @@
 #include <QDir>
 #include <QFile>
 #include <QTemporaryDir>
+#include <QTimeZone>
 #include <QtTest>
 
 class AppCompositionRootTest final : public QObject {
@@ -19,7 +20,7 @@ private slots:
                 series.interval = interval;
                 for (int i = 0; i < 3; ++i) {
                     oqt::data::CanonicalMarketBar bar;
-                    bar.timestamp = QDateTime::fromSecsSinceEpoch(i + 1, Qt::UTC);
+                    bar.timestamp = QDateTime::fromSecsSinceEpoch(i + 1, QTimeZone::UTC);
                     bar.open = 1.0; bar.high = 2.0; bar.low = 0.5; bar.close = 1.5;
                     series.bars.append(bar);
                 }
