@@ -9,6 +9,13 @@
 
 namespace oqt::storage {
 
+struct CanonicalDatasetPage {
+    oqt::data::CanonicalDataset dataset;
+    bool hasMore = false;
+    qint64 offset = 0;
+    qsizetype pageSize = 0;
+};
+
 // SQLite persistence boundary for canonical economic observations.
 // Dataset metadata and observations are committed atomically.
 class SqliteCanonicalDatasetStore final {
@@ -37,9 +44,16 @@ public:
         const QString& providerId,
         const QString& datasetId,
         QString* errorMessage = nullptr) const;
+    // Returns one deterministic SQL page ordered by series, period and key fields.
+    [[nodiscard]] std::optional<CanonicalDatasetPage> loadDatasetPage(
+        const QString& providerId, const QString& datasetId,
+        qsizetype pageSize, qint64 offset = 0, QString* errorMessage = nullptr) const;
 
 private:
     void closeConnection();
+    [[nodiscard]] std::optional<oqt::data::CanonicalDataset> loadDatasetImpl(
+        const QString& providerId, const QString& datasetId, qsizetype pageSize,
+        qint64 offset, QString* errorMessage, bool* hasMore) const;
     [[nodiscard]] bool initializeSchema(QString* errorMessage);
 
     QString m_databasePath;

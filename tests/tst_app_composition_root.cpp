@@ -12,8 +12,9 @@ class AppCompositionRootTest final : public QObject {
 private slots:
     void marketExplorerQueryBoundsDisplayRows() {
         oqt::application::MarketExplorerQuery query(
-            [](const QString& provider, const QString& instrument, const QString& interval, QString*)
-                -> std::optional<oqt::data::CanonicalMarketSeries> {
+            [](const QString& provider, const QString& instrument, const QString& interval,
+               qsizetype pageSize, qint64 offset, QString*)
+                -> std::optional<oqt::application::QueryPage<oqt::data::CanonicalMarketSeries>> {
                 oqt::data::CanonicalMarketSeries series;
                 series.providerId = provider;
                 series.instrumentId = instrument;
@@ -24,21 +25,27 @@ private slots:
                     bar.open = 1.0; bar.high = 2.0; bar.low = 0.5; bar.close = 1.5;
                     series.bars.append(bar);
                 }
-                return series;
+                series.bars.remove(0, static_cast<qsizetype>(offset));
+                if (series.bars.size() > pageSize) series.bars.removeLast();
+                return oqt::application::QueryPage<oqt::data::CanonicalMarketSeries>{
+                    std::move(series), offset == 0, offset, pageSize};
             });
         QString error;
         const auto result = query.execute("yahoo_finance", "AAPL", "1d", &error, 2);
         QVERIFY2(result.has_value(), qPrintable(error));
         QCOMPARE(result->series.bars.size(), 2);
         QVERIFY(result->displayTruncated);
-        QCOMPARE(result->series.bars.first().timestamp.toSecsSinceEpoch(), qint64(2));
+        QCOMPARE(result->series.bars.first().timestamp.toSecsSinceEpoch(), qint64(1));
+        QVERIFY(result->hasMore);
+        QCOMPARE(result->nextOffset, qint64(2));
+        QCOMPARE(result->pageSize, qsizetype(2));
     }
 
     void economicExplorerQueryValidatesRequiredIdentifiers() {
         oqt::application::EconomicDataExplorerQuery query(
-            [](const QString&, const QString&, QString*)
-                -> std::optional<oqt::data::CanonicalDataset> {
-                return oqt::data::CanonicalDataset{};
+            [](const QString&, const QString&, qsizetype, qint64, QString*)
+                -> std::optional<oqt::application::QueryPage<oqt::data::CanonicalDataset>> {
+                return oqt::application::QueryPage<oqt::data::CanonicalDataset>{};
             });
         QString error;
         QVERIFY(!query.execute("fred", "", &error).has_value());

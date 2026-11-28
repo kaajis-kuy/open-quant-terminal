@@ -10,6 +10,7 @@
 #include <QTimeZone>
 #include <QUuid>
 
+#include <algorithm>
 #include <limits>
 
 namespace oqt::storage {
@@ -538,6 +539,25 @@ std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSerie
                           0, errorMessage);
 }
 
+std::optional<CanonicalMarketSeriesPage> SqliteMarketDataStore::loadSeriesPage(
+    const QString& providerId, const QString& instrumentId, const QString& interval,
+    qsizetype pageSize, qint64 offset, QString* errorMessage) const {
+    constexpr qsizetype kMaximumPageSize = 5000;
+    if (pageSize <= 0 || pageSize > kMaximumPageSize) {
+        setError(errorMessage, QStringLiteral("pageSize must be between 1 and 5000"));
+        return std::nullopt;
+    }
+    if (offset < 0 || offset > std::numeric_limits<qint64>::max() - pageSize - 1) {
+        setError(errorMessage, QStringLiteral("offset is outside the supported range"));
+        return std::nullopt;
+    }
+    bool hasMore = false;
+    auto series = loadSeriesImpl(providerId, instrumentId, interval, std::nullopt,
+                                 std::nullopt, pageSize, errorMessage, offset, &hasMore);
+    if (!series) return std::nullopt;
+    return CanonicalMarketSeriesPage{std::move(*series), hasMore, offset, pageSize};
+}
+
 std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSeriesRange(
     const QString& providerId, const QString& instrumentId, const QString& interval,
     const QDateTime& startInclusive, const QDateTime& endExclusive,
@@ -568,7 +588,8 @@ std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSerie
 std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSeriesImpl(
     const QString& providerId, const QString& instrumentId, const QString& interval,
     std::optional<qint64> startInclusiveMs, std::optional<qint64> endExclusiveMs,
-    qsizetype maxBars, QString* errorMessage) const {
+    qsizetype maxBars, QString* errorMessage, qint64 offset, bool* hasMore) const {
+    if (hasMore) *hasMore = false;
     if (!isOpen()) {
         setError(errorMessage, QStringLiteral("database is not open"));
         return std::nullopt;
@@ -622,9 +643,14 @@ std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSerie
     if (endExclusiveMs.has_value()) {
         barsSql += QStringLiteral(" AND timestamp_ms<?");
     }
-    barsSql += QStringLiteral(" ORDER BY timestamp_ms ASC");
+    // Page queries select the newest slice first. Range reads preserve their
+    // established earliest-first semantics, including bounded maxBars reads.
+    const bool newestFirstPage = hasMore != nullptr;
+    barsSql += newestFirstPage
+        ? QStringLiteral(" ORDER BY timestamp_ms DESC")
+        : QStringLiteral(" ORDER BY timestamp_ms ASC");
     if (maxBars > 0) {
-        barsSql += QStringLiteral(" LIMIT ?");
+        barsSql += QStringLiteral(" LIMIT ? OFFSET ?");
     }
     bars.prepare(barsSql);
     bars.addBindValue(providerId);
@@ -632,7 +658,10 @@ std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSerie
     bars.addBindValue(interval);
     if (startInclusiveMs.has_value()) bars.addBindValue(*startInclusiveMs);
     if (endExclusiveMs.has_value()) bars.addBindValue(*endExclusiveMs);
-    if (maxBars > 0) bars.addBindValue(maxBars + 1);
+    if (maxBars > 0) {
+        bars.addBindValue(maxBars + 1);
+        bars.addBindValue(offset);
+    }
     if (!bars.exec()) {
         setError(errorMessage, sqlError(bars));
         return std::nullopt;
@@ -652,12 +681,19 @@ std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSerie
     // Read one extra row so truncation is reported only when more matching
     // candles actually exist beyond the requested cap.
     if (maxBars > 0 && series.bars.size() > maxBars) {
+        if (hasMore) *hasMore = true;
         series.bars.removeLast();
         series.quality.status = oqt::data::DataStatus::Partial;
         series.quality.isPartial = true;
         series.quality.isTruncated = true;
         series.quality.warnings.append(
             QStringLiteral("OHLCV range result truncated at maxBars=%1").arg(maxBars));
+    }
+
+    // Only page queries are fetched newest-first; reverse those slices so
+    // each page remains chronological. Range reads are already ascending.
+    if (newestFirstPage) {
+        std::reverse(series.bars.begin(), series.bars.end());
     }
 
     // A valid query can return no candles even when the stored full series

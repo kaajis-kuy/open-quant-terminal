@@ -98,8 +98,14 @@ bool AppCompositionRoot::initialize(const AppCompositionConfig& config,
                 [store = m_marketStore.get()](const QString& providerId,
                                               const QString& instrumentId,
                                               const QString& interval,
-                                              QString* error) {
-                    return store->loadSeries(providerId, instrumentId, interval, error);
+                                              qsizetype pageSize, qint64 offset,
+                                              QString* error)
+                    -> std::optional<application::QueryPage<oqt::data::CanonicalMarketSeries>> {
+                    auto page = store->loadSeriesPage(providerId, instrumentId, interval,
+                                                      pageSize, offset, error);
+                    if (!page) return std::nullopt;
+                    return application::QueryPage<oqt::data::CanonicalMarketSeries>{
+                        std::move(page->series), page->hasMore, page->offset, page->pageSize};
                 });
             m_marketStatus.available = true;
         } else {
@@ -121,8 +127,14 @@ bool AppCompositionRoot::initialize(const AppCompositionConfig& config,
             m_economicDataExplorerQuery = std::make_unique<application::EconomicDataExplorerQuery>(
                 [store = m_economicStore.get()](const QString& providerId,
                                                 const QString& datasetId,
-                                                QString* error) {
-                    return store->loadDataset(providerId, datasetId, error);
+                                                qsizetype pageSize, qint64 offset,
+                                                QString* error)
+                    -> std::optional<application::QueryPage<oqt::data::CanonicalDataset>> {
+                    auto page = store->loadDatasetPage(providerId, datasetId,
+                                                        pageSize, offset, error);
+                    if (!page) return std::nullopt;
+                    return application::QueryPage<oqt::data::CanonicalDataset>{
+                        std::move(page->dataset), page->hasMore, page->offset, page->pageSize};
                 });
             m_economicStatus.available = true;
         } else {

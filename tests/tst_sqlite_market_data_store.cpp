@@ -225,6 +225,44 @@ private slots:
                                   QStringLiteral("1d"), nullptr).has_value());
     }
 
+    void pagesMarketBarsInStableDatabaseOrder() {
+        SqliteMarketDataStore store(QStringLiteral(":memory:"));
+        QString error;
+        QVERIFY2(store.open(&error), qPrintable(error));
+        const CanonicalMarketSeries source = sampleSeries();
+        QVERIFY2(store.saveSeries(source, &error), qPrintable(error));
+
+        const auto first = store.loadSeriesPage(source.providerId, source.instrumentId,
+                                                source.interval, 1, 0, &error);
+        QVERIFY2(first.has_value(), qPrintable(error));
+        QCOMPARE(first->series.bars.size(), qsizetype(1));
+        QCOMPARE(first->series.bars.first().timestamp, source.bars.last().timestamp);
+        QVERIFY(first->hasMore);
+        QCOMPARE(first->offset, qint64(0));
+
+        const auto second = store.loadSeriesPage(source.providerId, source.instrumentId,
+                                                 source.interval, 1, 1, &error);
+        QVERIFY2(second.has_value(), qPrintable(error));
+        QCOMPARE(second->series.bars.size(), qsizetype(1));
+        QCOMPARE(second->series.bars.first().timestamp, source.bars.first().timestamp);
+        QVERIFY(!second->hasMore);
+
+        const auto empty = store.loadSeriesPage(source.providerId, source.instrumentId,
+                                                source.interval, 1, 2, &error);
+        QVERIFY2(empty.has_value(), qPrintable(error));
+        QVERIFY(empty->series.bars.isEmpty());
+        QVERIFY(!empty->hasMore);
+
+        error.clear();
+        QVERIFY(!store.loadSeriesPage(source.providerId, source.instrumentId,
+                                      source.interval, 0, 0, &error));
+        QVERIFY(error.contains(QStringLiteral("pageSize")));
+        error.clear();
+        QVERIFY(!store.loadSeriesPage(source.providerId, source.instrumentId,
+                                      source.interval, 1, -1, &error));
+        QVERIFY(error.contains(QStringLiteral("offset")));
+    }
+
     void roundTripsBarsAndProvenance() {
         SqliteMarketDataStore store(QStringLiteral(":memory:"));
         QString error;

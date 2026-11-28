@@ -167,6 +167,44 @@ private slots:
         QVERIFY(error.contains(QStringLiteral("economic_observations")));
     }
 
+    void pagesEconomicObservationsInStableDatabaseOrder() {
+        SqliteCanonicalDatasetStore store(QStringLiteral(":memory:"));
+        QString error;
+        QVERIFY2(store.open(&error), qPrintable(error));
+        EconomicDataIngestionService ingestion(store);
+        QVERIFY2(ingestion.persist(sampleResult(123.45), &error), qPrintable(error));
+
+        const auto first = store.loadDatasetPage(QStringLiteral("fred"),
+            QStringLiteral("fred.gdp"), 1, 0, &error);
+        QVERIFY2(first.has_value(), qPrintable(error));
+        QCOMPARE(first->dataset.observations.size(), qsizetype(1));
+        QCOMPARE(first->dataset.observations.first().period, QDate(2025, 4, 1));
+        QVERIFY(first->hasMore);
+        QCOMPARE(first->offset, qint64(0));
+
+        const auto second = store.loadDatasetPage(QStringLiteral("fred"),
+            QStringLiteral("fred.gdp"), 1, 1, &error);
+        QVERIFY2(second.has_value(), qPrintable(error));
+        QCOMPARE(second->dataset.observations.size(), qsizetype(1));
+        QCOMPARE(second->dataset.observations.first().period, QDate(2025, 1, 1));
+        QVERIFY(!second->hasMore);
+
+        const auto empty = store.loadDatasetPage(QStringLiteral("fred"),
+            QStringLiteral("fred.gdp"), 1, 2, &error);
+        QVERIFY2(empty.has_value(), qPrintable(error));
+        QVERIFY(empty->dataset.observations.isEmpty());
+        QVERIFY(!empty->hasMore);
+
+        error.clear();
+        QVERIFY(!store.loadDatasetPage(QStringLiteral("fred"),
+            QStringLiteral("fred.gdp"), 0, 0, &error));
+        QVERIFY(error.contains(QStringLiteral("pageSize")));
+        error.clear();
+        QVERIFY(!store.loadDatasetPage(QStringLiteral("fred"),
+            QStringLiteral("fred.gdp"), 1, -1, &error));
+        QVERIFY(error.contains(QStringLiteral("offset")));
+    }
+
     void persistsAndReloadsDatasetIncludingMissingValues() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
