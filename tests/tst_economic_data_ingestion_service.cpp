@@ -3,6 +3,8 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QTemporaryDir>
+#include <QSqlDatabase>
+#include <QSqlQuery>
 #include <QtTest>
 
 using namespace oqt::data;
@@ -142,6 +144,99 @@ private slots:
         invalid.errors.append(QStringLiteral("provider failed"));
         QVERIFY(!ingestion.persist(invalid, &error));
         QVERIFY(!error.isEmpty());
+    }
+
+    void recoversAfterSchemaInitializationFailure() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath(QStringLiteral("recovery.sqlite"));
+        const QString setupConnection = QStringLiteral("economic-schema-recovery-setup");
+
+        {
+            QSqlDatabase database = QSqlDatabase::addDatabase(
+                QStringLiteral("QSQLITE"), setupConnection);
+            database.setDatabaseName(path);
+            QVERIFY(database.open());
+            QSqlQuery query(database);
+            QVERIFY2(query.exec(QStringLiteral("PRAGMA user_version = 99")),
+                     qPrintable(query.lastError().text()));
+            database.close();
+        }
+        QSqlDatabase::removeDatabase(setupConnection);
+
+        SqliteCanonicalDatasetStore store(path);
+        QString error;
+        QVERIFY(!store.open(&error));
+        QVERIFY(error.contains(QStringLiteral("newer than supported")));
+        QVERIFY(!store.isOpen());
+
+        const QString repairConnection = QStringLiteral("economic-schema-recovery-repair");
+        {
+            QSqlDatabase database = QSqlDatabase::addDatabase(
+                QStringLiteral("QSQLITE"), repairConnection);
+            database.setDatabaseName(path);
+            QVERIFY(database.open());
+            QSqlQuery query(database);
+            QVERIFY2(query.exec(QStringLiteral("PRAGMA user_version = 0")),
+                     qPrintable(query.lastError().text()));
+            database.close();
+        }
+        QSqlDatabase::removeDatabase(repairConnection);
+
+        error.clear();
+        QVERIFY2(store.open(&error), qPrintable(error));
+        QVERIFY(store.isOpen());
+        const auto loaded = store.loadDataset(
+            QStringLiteral("fred"), QStringLiteral("fred.gdp"), &error);
+        QVERIFY(!loaded.has_value());
+        QVERIFY(error.isEmpty());
+    }
+
+    void rollsBackDatasetAndObservationsWhenWriteFailsMidTransaction() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString path = directory.filePath(QStringLiteral("atomic-recovery.sqlite"));
+
+        {
+            SqliteCanonicalDatasetStore store(path);
+            QString error;
+            QVERIFY2(store.open(&error), qPrintable(error));
+            EconomicDataIngestionService ingestion(store);
+            QVERIFY2(ingestion.persist(sampleResult(123.45), &error), qPrintable(error));
+        }
+
+        const QString triggerConnection = QStringLiteral("economic-rollback-trigger");
+        {
+            QSqlDatabase database = QSqlDatabase::addDatabase(
+                QStringLiteral("QSQLITE"), triggerConnection);
+            database.setDatabaseName(path);
+            QVERIFY(database.open());
+            QSqlQuery query(database);
+            const QString triggerSql = QStringLiteral(
+                "CREATE TRIGGER reject_economic_observation "
+                "BEFORE INSERT ON economic_observations "
+                "WHEN NEW.period = '2025-04-01' "
+                "BEGIN SELECT RAISE(ABORT, 'forced insert failure'); END");
+            QVERIFY2(query.exec(triggerSql), qPrintable(query.lastError().text()));
+            database.close();
+        }
+        QSqlDatabase::removeDatabase(triggerConnection);
+
+        {
+            SqliteCanonicalDatasetStore store(path);
+            QString error;
+            QVERIFY2(store.open(&error), qPrintable(error));
+            EconomicDataIngestionService ingestion(store);
+            QVERIFY(!ingestion.persist(sampleResult(200.0), &error));
+            QVERIFY(!error.isEmpty());
+
+            error.clear();
+            const auto loaded = store.loadDataset(
+                QStringLiteral("fred"), QStringLiteral("fred.gdp"), &error);
+            QVERIFY2(loaded.has_value(), qPrintable(error));
+            QCOMPARE(loaded->observations.size(), qsizetype(2));
+            QCOMPARE(*loaded->observations.at(0).value, 123.45);
+        }
     }
 };
 
