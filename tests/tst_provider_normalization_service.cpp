@@ -7,6 +7,40 @@
 
 using namespace oqt::providers;
 
+namespace {
+
+class InconsistentIdentityAdapter final : public ProviderAdapter {
+public:
+    explicit InconsistentIdentityAdapter(QString mismatch)
+        : m_mismatch(std::move(mismatch)) {}
+
+    [[nodiscard]] QString providerId() const override {
+        return QStringLiteral("test_provider");
+    }
+
+    [[nodiscard]] QStringList supportedOperations() const override {
+        return {QStringLiteral("fetch")};
+    }
+
+    [[nodiscard]] AdapterResult normalize(
+        const ProviderResponse&,
+        const ProviderRequestContext& context) const override {
+        AdapterResult result;
+        result.rawResult.providerId = m_mismatch == QStringLiteral("provider")
+            ? QStringLiteral("wrong_provider") : providerId();
+        result.rawResult.operationId = m_mismatch == QStringLiteral("operation")
+            ? QStringLiteral("wrong_operation") : context.operationId;
+        result.rawResult.requestId = m_mismatch == QStringLiteral("request")
+            ? QStringLiteral("wrong_request") : context.requestId;
+        return result;
+    }
+
+private:
+    QString m_mismatch;
+};
+
+} // namespace
+
 class ProviderNormalizationServiceTest final : public QObject {
     Q_OBJECT
 
@@ -91,6 +125,34 @@ private slots:
         QVERIFY(!result.isValid());
         QVERIFY(result.errors.join(QLatin1Char(' ')).contains(
             QStringLiteral("Provider ID and operation ID are required")));
+    }
+
+    void rejectsInconsistentAdapterRequestIdentity() {
+        const QStringList mismatches{
+            QStringLiteral("provider"),
+            QStringLiteral("operation"),
+            QStringLiteral("request")
+        };
+
+        for (const QString& mismatch : mismatches) {
+            ProviderAdapterRegistry registry;
+            QVERIFY(registry.registerAdapter(
+                std::make_shared<InconsistentIdentityAdapter>(mismatch)));
+            oqt::services::ProviderNormalizationService service(registry);
+
+            ProviderRequestContext context;
+            context.providerId = QStringLiteral("test_provider");
+            context.operationId = QStringLiteral("fetch");
+            context.requestId = QStringLiteral("request-identity");
+
+            const AdapterResult result = service.normalize(ProviderResponse{}, context);
+            QVERIFY2(!result.isValid(), qPrintable(mismatch));
+            QCOMPARE(result.responseStatus, ResponseStatus::Failed);
+            QVERIFY(result.errors.join(QLatin1Char(' ')).contains(
+                QStringLiteral("inconsistent request identity")));
+            QVERIFY(result.rawResult.errorMessage.contains(
+                QStringLiteral("inconsistent request identity")));
+        }
     }
 };
 
