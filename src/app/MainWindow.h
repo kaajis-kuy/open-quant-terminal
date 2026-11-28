@@ -13,6 +13,7 @@ class QLabel;
 class QLineEdit;
 class QComboBox;
 class QTableWidget;
+class QPushButton;
 
 class MainWindow final : public QMainWindow {
     Q_OBJECT
@@ -32,6 +33,8 @@ private:
     void loadMarketSeries();
     void loadEconomicDataset();
     void loadCatalogSelectors();
+    void loadMarketCatalogPage(qint64 offset);
+    void loadEconomicCatalogPage(qint64 offset);
     void selectMarketCatalogEntry(int index);
     void selectEconomicCatalogEntry(int index);
 
@@ -41,6 +44,11 @@ private:
     oqt::application::EconomicDatasetCatalogQuery* m_economicCatalog = nullptr;
 
     QComboBox* m_marketCatalogSelector = nullptr;
+    QPushButton* m_marketCatalogPrevious = nullptr;
+    QPushButton* m_marketCatalogNext = nullptr;
+    QLabel* m_marketCatalogPageLabel = nullptr;
+    qint64 m_marketCatalogOffset = 0;
+    bool m_marketCatalogHasMore = false;
     QLineEdit* m_marketProvider = nullptr;
     QLineEdit* m_marketInstrument = nullptr;
     QLineEdit* m_marketInterval = nullptr;
@@ -48,6 +56,11 @@ private:
     QLabel* m_marketSummary = nullptr;
 
     QComboBox* m_economicCatalogSelector = nullptr;
+    QPushButton* m_economicCatalogPrevious = nullptr;
+    QPushButton* m_economicCatalogNext = nullptr;
+    QLabel* m_economicCatalogPageLabel = nullptr;
+    qint64 m_economicCatalogOffset = 0;
+    bool m_economicCatalogHasMore = false;
     QLineEdit* m_economicProvider = nullptr;
     QLineEdit* m_economicDataset = nullptr;
     QTableWidget* m_economicTable = nullptr;
