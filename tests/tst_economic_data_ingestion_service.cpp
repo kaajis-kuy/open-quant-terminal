@@ -4,6 +4,7 @@
 #include <QJsonObject>
 #include <QTemporaryDir>
 #include <QSqlDatabase>
+#include <QSqlError>
 #include <QSqlQuery>
 #include <QtTest>
 
