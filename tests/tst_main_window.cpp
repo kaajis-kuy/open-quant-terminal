@@ -3,6 +3,7 @@
 #include <QLabel>
 #include <QStatusBar>
 #include <QTabWidget>
+#include <QTableWidget>
 #include <QtTest>
 
 class MainWindowTest final : public QObject {
