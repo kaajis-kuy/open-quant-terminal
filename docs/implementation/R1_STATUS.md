@@ -67,8 +67,18 @@
 - No production code or schema changes; the increment verifies independent module startup and read availability.
 - Exact-head CI is pending.
 
+## Refresh UI regression increment in progress
+
+- Added UI tests for market refresh success/persistence, provider failure with actionable error text, and economic refresh cancellation.
+- Added coverage that market and economic refresh controls operate independently while both tasks are active.
+- Added degraded-module UI coverage: when one application explorer query is unavailable, its corresponding refresh action is disabled while the other module's refresh action remains enabled.
+- Fixed MainWindow refresh-action enablement to require both the refresh controller and the corresponding module query/read-model. This prevents offering a refresh action for a database module that failed startup in degraded mode.
+- Tests use a fake RefreshTaskController and query fixtures; no live providers or credentials.
+- Exact-head CI is pending.
+
 ## Remaining R1 work
-- Add broader application/composition integration and UI smoke/regression tests.
+- Run exact-head CI for the refresh UI increment and fix any failures.
+- Add any remaining UI smoke/regression coverage identified by CI/review.
 - Run final exact-head CI and review all stacked PRs; no merge without maintainer approval.
 
 This is an implementation checkpoint, not an R1 completion claim. Pagination exact-head CI is green. Live provider behavior and data entitlements remain unverified. Pull-request merge requires separate maintainer approval.
