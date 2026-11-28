@@ -72,6 +72,7 @@ private:
     oqt::services::FredEconomicRefreshService* m_economicRefresh = nullptr;
     std::function<bool(const QString&, const QString&, QString*)> m_economicRefreshStarter;
     QString m_marketRequestId;
+    QString m_marketProviderSymbol;
     QString m_economicRequestId;
     bool m_marketCancelRequested = false;
     bool m_economicCancelRequested = false;
