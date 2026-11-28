@@ -348,7 +348,7 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
     auto* marketLoad = new QPushButton(QStringLiteral("Load series"), marketPage);
     m_marketRefreshButton = new QPushButton(QStringLiteral("Refresh from Yahoo"), marketPage);
     m_marketRefreshButton->setObjectName("refreshMarketButton");
-    m_marketRefreshButton->setEnabled(m_refreshController != nullptr);
+    m_marketRefreshButton->setEnabled(m_refreshController != nullptr && m_marketQuery != nullptr);
     marketLoad->setObjectName("loadMarketSeriesButton");
     marketLoad->setEnabled(m_marketQuery != nullptr);
     marketInputs->addWidget(m_marketProvider);
@@ -432,7 +432,7 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
     auto* economicLoad = new QPushButton(QStringLiteral("Load dataset"), economicPage);
     m_economicRefreshButton = new QPushButton(QStringLiteral("Refresh from FRED"), economicPage);
     m_economicRefreshButton->setObjectName("refreshEconomicButton");
-    m_economicRefreshButton->setEnabled(m_refreshController != nullptr);
+    m_economicRefreshButton->setEnabled(m_refreshController != nullptr && m_economicQuery != nullptr);
     economicLoad->setObjectName("loadEconomicDatasetButton");
     economicLoad->setEnabled(m_economicQuery != nullptr);
     economicInputs->addWidget(m_economicProvider);
@@ -593,8 +593,8 @@ void MainWindow::updateRefreshTaskUi() {
     m_refreshProgress->setRange(0, active ? 0 : 1);
     if (!active) m_refreshProgress->setValue(0);
     m_cancelRefreshButton->setEnabled(active);
-    m_marketRefreshButton->setEnabled(m_refreshController && !marketActive);
-    m_economicRefreshButton->setEnabled(m_refreshController && !economicActive);
+    m_marketRefreshButton->setEnabled(m_refreshController && m_marketQuery && !marketActive);
+    m_economicRefreshButton->setEnabled(m_refreshController && m_economicQuery && !economicActive);
     if (marketActive && economicActive) {
         m_refreshTaskLabel->setText(QStringLiteral("Market and economic refresh running…"));
     } else if (marketActive) {
