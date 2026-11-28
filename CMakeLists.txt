@@ -30,6 +30,10 @@ add_executable(open-quant-terminal
     src/core/storage/SqliteMarketDataStore.h
     src/core/services/MarketDataIngestionService.cpp
     src/core/services/MarketDataIngestionService.h
+    src/core/services/EconomicDataIngestionService.cpp
+    src/core/services/EconomicDataIngestionService.h
+    src/core/storage/SqliteCanonicalDatasetStore.cpp
+    src/core/storage/SqliteCanonicalDatasetStore.h
     src/core/services/ProviderNormalizationService.cpp
     src/core/services/ProviderNormalizationService.h
     src/core/services/YahooMarketDataRefreshService.cpp
@@ -511,6 +515,38 @@ if(OQT_BUILD_TESTS)
 
     add_test(NAME tst_yahoo_market_data_refresh_service
              COMMAND tst_yahoo_market_data_refresh_service)
+
+    add_executable(tst_economic_data_ingestion_service
+        tests/tst_economic_data_ingestion_service.cpp
+        src/core/services/EconomicDataIngestionService.cpp
+        src/core/services/EconomicDataIngestionService.h
+        src/core/storage/SqliteCanonicalDatasetStore.cpp
+        src/core/storage/SqliteCanonicalDatasetStore.h
+        src/core/providers/ProviderAdapter.cpp
+        src/core/providers/ProviderAdapter.h
+        src/core/providers/ProviderResponse.cpp
+        src/core/providers/ProviderResponse.h
+        src/core/data/CanonicalData.cpp
+        src/core/data/CanonicalData.h
+        src/core/data/MarketData.cpp
+        src/core/data/MarketData.h
+    )
+
+    target_link_libraries(tst_economic_data_ingestion_service
+        PRIVATE
+            Qt6::Test
+            Qt6::Core
+            Qt6::Sql
+    )
+
+    target_include_directories(tst_economic_data_ingestion_service
+        PRIVATE
+            ${CMAKE_CURRENT_SOURCE_DIR}/src
+    )
+
+    add_test(NAME tst_economic_data_ingestion_service
+             COMMAND tst_economic_data_ingestion_service)
+
     set_tests_properties(tst_main_window PROPERTIES
         ENVIRONMENT "QT_QPA_PLATFORM=offscreen"
     )
