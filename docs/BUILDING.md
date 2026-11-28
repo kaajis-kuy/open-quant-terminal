@@ -38,4 +38,6 @@ The initial smoke test uses Qt's offscreen platform and does not require a displ
 
 ## Current scope
 
-The current targets include the Qt application shell, canonical data-contract validation, and provider-response envelope decoding. Tests use deterministic JSON fixtures and do not require live provider credentials or network access. The first complete provider-to-domain vertical slice remains pending.
+The Qt desktop shell now exposes initial Market Explorer and Economic Data Explorer read workflows through application query services. The application query boundary is wired to the existing separate SQLite stores by the composition root; UI widgets do not access provider clients or storage classes directly. Explorer queries currently require the stored provider/instrument/interval or provider/dataset identifiers and display at most 1,000 most-recent rows.
+
+Yahoo Finance and FRED ingestion/refresh foundations remain available through their existing services. The first explorer iteration is read-only: in-screen refresh controls, progress/cancellation presentation, charts, provider/catalog discovery, and database-level pagination are follow-up R1 work. Tests use deterministic fixtures and temporary SQLite databases; CI does not require live provider credentials or network access.
