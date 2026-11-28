@@ -34,6 +34,7 @@ public:
         QString* errorMessage = nullptr) const;
 
 private:
+    void closeConnection();
     [[nodiscard]] bool initializeSchema(QString* errorMessage);
 
     QString m_databasePath;
