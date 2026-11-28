@@ -50,11 +50,14 @@ SqliteCanonicalDatasetStore::SqliteCanonicalDatasetStore(QString databasePath)
 }
 
 SqliteCanonicalDatasetStore::~SqliteCanonicalDatasetStore() {
-    if (m_database.isValid()) {
-        m_database.close();
-        m_database = QSqlDatabase();
-        QSqlDatabase::removeDatabase(m_connectionName);
-    }
+    closeConnection();
+}
+
+void SqliteCanonicalDatasetStore::closeConnection() {
+    if (!m_database.isValid()) return;
+    m_database.close();
+    m_database = QSqlDatabase();
+    QSqlDatabase::removeDatabase(m_connectionName);
 }
 
 bool SqliteCanonicalDatasetStore::open(QString* errorMessage) {
@@ -64,44 +67,55 @@ bool SqliteCanonicalDatasetStore::open(QString* errorMessage) {
         return false;
     }
 
-    if (m_database.isValid()) {
-        m_database.close();
-        m_database = QSqlDatabase();
-        QSqlDatabase::removeDatabase(m_connectionName);
-    }
+    // A previous failed open must not leave a registered connection behind.
+    closeConnection();
 
     m_database = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), m_connectionName);
     m_database.setDatabaseName(m_databasePath);
     if (!m_database.open()) {
         const QString message = m_database.lastError().text();
         setError(errorMessage, message);
-        m_database = QSqlDatabase();
-        QSqlDatabase::removeDatabase(m_connectionName);
+        closeConnection();
         return false;
     }
 
-    QSqlQuery pragmas(m_database);
-    if (!pragmas.exec(QStringLiteral("PRAGMA foreign_keys = ON"))) {
-        setError(errorMessage, sqlError(pragmas));
-        return false;
-    }
-    pragmas.finish();
-    if (!pragmas.exec(QStringLiteral("PRAGMA busy_timeout = 5000"))) {
-        setError(errorMessage, sqlError(pragmas));
-        return false;
-    }
-    pragmas.finish();
-
-    if (m_databasePath != QStringLiteral(":memory:")) {
-        if (!pragmas.exec(QStringLiteral("PRAGMA journal_mode = WAL")) || !pragmas.next()
-            || pragmas.value(0).toString().compare(QStringLiteral("wal"), Qt::CaseInsensitive) != 0) {
-            setError(errorMessage, pragmas.lastError().isValid()
-                ? sqlError(pragmas) : QStringLiteral("SQLite could not enable WAL mode"));
-            return false;
+    QString setupError;
+    {
+        QSqlQuery pragmas(m_database);
+        if (!pragmas.exec(QStringLiteral("PRAGMA foreign_keys = ON"))) {
+            setupError = sqlError(pragmas);
+        } else {
+            pragmas.finish();
+            if (!pragmas.exec(QStringLiteral("PRAGMA busy_timeout = 5000"))) {
+                setupError = sqlError(pragmas);
+            } else {
+                pragmas.finish();
+                if (m_databasePath != QStringLiteral(":memory:")) {
+                    if (!pragmas.exec(QStringLiteral("PRAGMA journal_mode = WAL"))
+                        || !pragmas.next()
+                        || pragmas.value(0).toString().compare(
+                            QStringLiteral("wal"), Qt::CaseInsensitive) != 0) {
+                        setupError = pragmas.lastError().isValid()
+                            ? sqlError(pragmas)
+                            : QStringLiteral("SQLite could not enable WAL mode");
+                    }
+                    pragmas.finish();
+                }
+            }
         }
-        pragmas.finish();
     }
-    return initializeSchema(errorMessage);
+
+    if (!setupError.isEmpty()) {
+        setError(errorMessage, setupError);
+        closeConnection();
+        return false;
+    }
+
+    if (!initializeSchema(errorMessage)) {
+        closeConnection();
+        return false;
+    }
+    return true;
 }
 
 bool SqliteCanonicalDatasetStore::isOpen() const {
