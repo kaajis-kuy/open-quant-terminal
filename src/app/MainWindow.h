@@ -5,10 +5,13 @@
 namespace oqt::application {
 class MarketExplorerQuery;
 class EconomicDataExplorerQuery;
+class MarketInstrumentCatalogQuery;
+class EconomicDatasetCatalogQuery;
 }
 
 class QLabel;
 class QLineEdit;
+class QComboBox;
 class QTableWidget;
 
 class MainWindow final : public QMainWindow {
@@ -19,20 +22,32 @@ public:
     MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
                oqt::application::EconomicDataExplorerQuery* economicQuery,
                QWidget* parent = nullptr);
+    MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
+               oqt::application::EconomicDataExplorerQuery* economicQuery,
+               oqt::application::MarketInstrumentCatalogQuery* marketCatalog,
+               oqt::application::EconomicDatasetCatalogQuery* economicCatalog,
+               QWidget* parent = nullptr);
 
 private:
     void loadMarketSeries();
     void loadEconomicDataset();
+    void loadCatalogSelectors();
+    void selectMarketCatalogEntry(int index);
+    void selectEconomicCatalogEntry(int index);
 
     oqt::application::MarketExplorerQuery* m_marketQuery = nullptr;
     oqt::application::EconomicDataExplorerQuery* m_economicQuery = nullptr;
+    oqt::application::MarketInstrumentCatalogQuery* m_marketCatalog = nullptr;
+    oqt::application::EconomicDatasetCatalogQuery* m_economicCatalog = nullptr;
 
+    QComboBox* m_marketCatalogSelector = nullptr;
     QLineEdit* m_marketProvider = nullptr;
     QLineEdit* m_marketInstrument = nullptr;
     QLineEdit* m_marketInterval = nullptr;
     QTableWidget* m_marketTable = nullptr;
     QLabel* m_marketSummary = nullptr;
 
+    QComboBox* m_economicCatalogSelector = nullptr;
     QLineEdit* m_economicProvider = nullptr;
     QLineEdit* m_economicDataset = nullptr;
     QTableWidget* m_economicTable = nullptr;
