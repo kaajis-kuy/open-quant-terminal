@@ -314,6 +314,38 @@ private slots:
         QVERIFY(reopened.isOpen());
     }
 
+    void listsPersistedEconomicDatasetsWithAggregatesAndFiltering() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        SqliteCanonicalDatasetStore store(QStringLiteral(":memory:"));
+        QString error;
+        QVERIFY2(store.open(&error), qPrintable(error));
+        EconomicDataIngestionService ingestion(store);
+        QVERIFY2(ingestion.persist(sampleResult(123.45), &error), qPrintable(error));
+
+        const auto page = store.loadDatasetCatalog({}, 10, 0, &error);
+        QVERIFY2(page.has_value(), qPrintable(error));
+        QCOMPARE(page->entries.size(), qsizetype(1));
+        const auto& entry = page->entries.first();
+        QCOMPARE(entry.providerId, QStringLiteral("fred"));
+        QCOMPARE(entry.datasetId, QStringLiteral("fred.gdp"));
+        QCOMPARE(entry.observationCount, qint64(2));
+        QCOMPARE(entry.earliestPeriod, QDate(2025, 1, 1));
+        QCOMPARE(entry.latestPeriod, QDate(2025, 4, 1));
+        QCOMPARE(entry.attributionId, QStringLiteral("FRED"));
+
+        const auto filtered = store.loadDatasetCatalog(QStringLiteral("gdp"), 10, 0, &error);
+        QVERIFY2(filtered.has_value(), qPrintable(error));
+        QCOMPARE(filtered->entries.size(), qsizetype(1));
+        const auto empty = store.loadDatasetCatalog(QStringLiteral("missing"), 10, 0, &error);
+        QVERIFY2(empty.has_value(), qPrintable(error));
+        QVERIFY(empty->entries.isEmpty());
+
+        error.clear();
+        QVERIFY(!store.loadDatasetCatalog({}, 501, 0, &error));
+        QVERIFY(error.contains(QStringLiteral("page size")));
+    }
+
     void recoversAfterSchemaInitializationFailure() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());

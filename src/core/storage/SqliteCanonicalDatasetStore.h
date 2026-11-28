@@ -1,6 +1,7 @@
 #pragma once
 
 #include "core/data/CanonicalData.h"
+#include "core/data/CatalogData.h"
 
 #include <QSqlDatabase>
 #include <QString>
@@ -48,6 +49,11 @@ public:
     [[nodiscard]] std::optional<CanonicalDatasetPage> loadDatasetPage(
         const QString& providerId, const QString& datasetId,
         qsizetype pageSize, qint64 offset = 0, QString* errorMessage = nullptr) const;
+
+    // Lists locally persisted economic datasets; never contacts providers.
+    [[nodiscard]] std::optional<oqt::data::EconomicDatasetCatalogPage> loadDatasetCatalog(
+        const QString& searchText = {}, qsizetype pageSize = 100, qint64 offset = 0,
+        QString* errorMessage = nullptr) const;
 
 private:
     void closeConnection();

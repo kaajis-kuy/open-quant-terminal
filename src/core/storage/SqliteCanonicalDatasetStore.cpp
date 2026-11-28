@@ -540,4 +540,76 @@ std::optional<oqt::data::CanonicalDataset> SqliteCanonicalDatasetStore::loadData
     return dataset;
 }
 
+
+std::optional<oqt::data::EconomicDatasetCatalogPage>
+SqliteCanonicalDatasetStore::loadDatasetCatalog(
+    const QString& searchText, qsizetype pageSize, qint64 offset,
+    QString* errorMessage) const {
+    constexpr qsizetype kMaximumPageSize = 500;
+    if (pageSize <= 0 || pageSize > kMaximumPageSize || offset < 0
+        || offset > std::numeric_limits<qint64>::max() - pageSize - 1) {
+        setError(errorMessage, QStringLiteral("catalog page size must be 1..500 and offset must be non-negative"));
+        return std::nullopt;
+    }
+    if (!isOpen()) {
+        setError(errorMessage, QStringLiteral("database is not open"));
+        return std::nullopt;
+    }
+
+    const QString filter = searchText.trimmed();
+    const QString pattern = filter.isEmpty() ? QStringLiteral("") : QStringLiteral("%") + filter + QStringLiteral("%");
+    QSqlQuery query(m_database);
+    query.prepare(QStringLiteral(
+        "SELECT d.provider_id,d.dataset_id,d.schema_version,COUNT(o.period),"
+        "MIN(o.period),MAX(o.period),d.source_url,d.attribution_id,d.retrieved_at,"
+        "d.quality_status,d.is_partial,d.is_truncated "
+        "FROM economic_datasets d LEFT JOIN economic_observations o "
+        "ON o.provider_id=d.provider_id AND o.dataset_id=d.dataset_id "
+        "WHERE (?='' OR d.provider_id LIKE ? OR d.dataset_id LIKE ?) "
+        "GROUP BY d.provider_id,d.dataset_id "
+        "ORDER BY d.provider_id ASC,d.dataset_id ASC LIMIT ? OFFSET ?"));
+    // Bind the normalized pattern for the empty-search predicate as well.
+    // A default-constructed QString is null in Qt, and SQLite evaluates NULL = ''
+    // as NULL (not true), which would otherwise hide every catalog row.
+    query.addBindValue(pattern);
+    query.addBindValue(pattern);
+    query.addBindValue(pattern);
+    query.addBindValue(pageSize + 1);
+    query.addBindValue(offset);
+    if (!query.exec()) {
+        setError(errorMessage, sqlError(query));
+        return std::nullopt;
+    }
+
+    oqt::data::EconomicDatasetCatalogPage page;
+    page.offset = offset;
+    page.pageSize = pageSize;
+    while (query.next()) {
+        oqt::data::EconomicDatasetCatalogEntry entry;
+        entry.providerId = query.value(0).toString();
+        entry.datasetId = query.value(1).toString();
+        entry.schemaVersion = query.value(2).toString();
+        entry.observationCount = query.value(3).toLongLong();
+        if (!query.isNull(4)) entry.earliestPeriod = QDate::fromString(query.value(4).toString(), Qt::ISODate);
+        if (!query.isNull(5)) entry.latestPeriod = QDate::fromString(query.value(5).toString(), Qt::ISODate);
+        entry.sourceUrl = query.value(6).toString();
+        entry.attributionId = query.value(7).toString();
+        entry.retrievedAt = QDateTime::fromString(query.value(8).toString(), Qt::ISODateWithMs);
+        entry.qualityStatus = static_cast<oqt::data::DataStatus>(query.value(9).toInt());
+        entry.isPartial = query.value(10).toBool();
+        entry.isTruncated = query.value(11).toBool();
+        page.entries.append(std::move(entry));
+    }
+    if (query.lastError().isValid()) {
+        setError(errorMessage, sqlError(query));
+        return std::nullopt;
+    }
+    if (page.entries.size() > pageSize) {
+        page.hasMore = true;
+        page.entries.removeLast();
+    }
+    if (errorMessage) errorMessage->clear();
+    return page;
+}
+
 } // namespace oqt::storage

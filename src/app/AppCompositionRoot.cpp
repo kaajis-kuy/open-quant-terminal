@@ -30,6 +30,8 @@ bool ensureParentDirectory(const QString& databasePath, QString* errorMessage) {
 } // namespace
 
 void AppCompositionRoot::reset() {
+    m_marketInstrumentCatalogQuery.reset();
+    m_economicDatasetCatalogQuery.reset();
     m_marketExplorerQuery.reset();
     m_economicDataExplorerQuery.reset();
     m_fredRefresh.reset();
@@ -107,6 +109,11 @@ bool AppCompositionRoot::initialize(const AppCompositionConfig& config,
                     return application::QueryPage<oqt::data::CanonicalMarketSeries>{
                         std::move(page->series), page->hasMore, page->offset, page->pageSize};
                 });
+            m_marketInstrumentCatalogQuery = std::make_unique<application::MarketInstrumentCatalogQuery>(
+                [store = m_marketStore.get()](const QString& search, qsizetype pageSize,
+                                              qint64 offset, QString* error) {
+                    return store->loadInstrumentCatalog(search, pageSize, offset, error);
+                });
             m_marketStatus.available = true;
         } else {
             m_marketStore.reset();
@@ -135,6 +142,11 @@ bool AppCompositionRoot::initialize(const AppCompositionConfig& config,
                     if (!page) return std::nullopt;
                     return application::QueryPage<oqt::data::CanonicalDataset>{
                         std::move(page->dataset), page->hasMore, page->offset, page->pageSize};
+                });
+            m_economicDatasetCatalogQuery = std::make_unique<application::EconomicDatasetCatalogQuery>(
+                [store = m_economicStore.get()](const QString& search, qsizetype pageSize,
+                                                qint64 offset, QString* error) {
+                    return store->loadDatasetCatalog(search, pageSize, offset, error);
                 });
             m_economicStatus.available = true;
         } else {
@@ -217,6 +229,14 @@ application::MarketExplorerQuery* AppCompositionRoot::marketExplorerQuery() {
 
 application::EconomicDataExplorerQuery* AppCompositionRoot::economicDataExplorerQuery() {
     return m_economicDataExplorerQuery.get();
+}
+
+application::MarketInstrumentCatalogQuery* AppCompositionRoot::marketInstrumentCatalogQuery() {
+    return m_marketInstrumentCatalogQuery.get();
+}
+
+application::EconomicDatasetCatalogQuery* AppCompositionRoot::economicDatasetCatalogQuery() {
+    return m_economicDatasetCatalogQuery.get();
 }
 
 } // namespace oqt::app

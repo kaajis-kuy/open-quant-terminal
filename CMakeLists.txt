@@ -23,6 +23,8 @@ add_executable(open-quant-terminal
     src/app/AppCompositionRoot.cpp
     src/app/AppCompositionRoot.h
     src/application/DataExplorerQueries.h
+    src/application/CatalogQueries.h
+    src/core/data/CatalogData.h
     src/app/MainWindow.cpp
     src/app/MainWindow.h
     src/core/data/CanonicalData.cpp
@@ -87,6 +89,9 @@ if(OQT_BUILD_TESTS)
         tests/tst_main_window.cpp
         src/app/MainWindow.cpp
         src/app/MainWindow.h
+        src/application/DataExplorerQueries.h
+        src/application/CatalogQueries.h
+        src/core/data/CatalogData.h
     )
 
     target_link_libraries(tst_main_window
