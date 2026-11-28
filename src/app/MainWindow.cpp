@@ -100,6 +100,26 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
     m_marketCatalogSelector->addItem(QStringLiteral("Select a stored instrument…"));
     m_marketCatalogSelector->setEnabled(m_marketCatalog != nullptr);
     marketLayout->addWidget(m_marketCatalogSelector);
+    auto* marketCatalogNavigation = new QHBoxLayout();
+    m_marketCatalogPrevious = new QPushButton(QStringLiteral("Previous"), marketPage);
+    m_marketCatalogPrevious->setObjectName("marketCatalogPreviousButton");
+    m_marketCatalogPageLabel = new QLabel(QStringLiteral("Page 1"), marketPage);
+    m_marketCatalogPageLabel->setObjectName("marketCatalogPageLabel");
+    m_marketCatalogNext = new QPushButton(QStringLiteral("Next"), marketPage);
+    m_marketCatalogNext->setObjectName("marketCatalogNextButton");
+    m_marketCatalogPrevious->setEnabled(false);
+    m_marketCatalogNext->setEnabled(false);
+    marketCatalogNavigation->addWidget(m_marketCatalogPrevious);
+    marketCatalogNavigation->addWidget(m_marketCatalogPageLabel);
+    marketCatalogNavigation->addWidget(m_marketCatalogNext);
+    marketCatalogNavigation->addStretch(1);
+    marketLayout->addLayout(marketCatalogNavigation);
+    QObject::connect(m_marketCatalogPrevious, &QPushButton::clicked, this, [this] {
+        loadMarketCatalogPage(qMax<qint64>(0, m_marketCatalogOffset - 500));
+    });
+    QObject::connect(m_marketCatalogNext, &QPushButton::clicked, this, [this] {
+        loadMarketCatalogPage(m_marketCatalogOffset + 500);
+    });
     QObject::connect(m_marketCatalogSelector, qOverload<int>(&QComboBox::activated),
                      this, [this](int index) { selectMarketCatalogEntry(index); });
 
@@ -145,6 +165,26 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
     m_economicCatalogSelector->addItem(QStringLiteral("Select a stored dataset…"));
     m_economicCatalogSelector->setEnabled(m_economicCatalog != nullptr);
     economicLayout->addWidget(m_economicCatalogSelector);
+    auto* economicCatalogNavigation = new QHBoxLayout();
+    m_economicCatalogPrevious = new QPushButton(QStringLiteral("Previous"), economicPage);
+    m_economicCatalogPrevious->setObjectName("economicCatalogPreviousButton");
+    m_economicCatalogPageLabel = new QLabel(QStringLiteral("Page 1"), economicPage);
+    m_economicCatalogPageLabel->setObjectName("economicCatalogPageLabel");
+    m_economicCatalogNext = new QPushButton(QStringLiteral("Next"), economicPage);
+    m_economicCatalogNext->setObjectName("economicCatalogNextButton");
+    m_economicCatalogPrevious->setEnabled(false);
+    m_economicCatalogNext->setEnabled(false);
+    economicCatalogNavigation->addWidget(m_economicCatalogPrevious);
+    economicCatalogNavigation->addWidget(m_economicCatalogPageLabel);
+    economicCatalogNavigation->addWidget(m_economicCatalogNext);
+    economicCatalogNavigation->addStretch(1);
+    economicLayout->addLayout(economicCatalogNavigation);
+    QObject::connect(m_economicCatalogPrevious, &QPushButton::clicked, this, [this] {
+        loadEconomicCatalogPage(qMax<qint64>(0, m_economicCatalogOffset - 500));
+    });
+    QObject::connect(m_economicCatalogNext, &QPushButton::clicked, this, [this] {
+        loadEconomicCatalogPage(m_economicCatalogOffset + 500);
+    });
     QObject::connect(m_economicCatalogSelector, qOverload<int>(&QComboBox::activated),
                      this, [this](int index) { selectEconomicCatalogEntry(index); });
 
@@ -187,61 +227,80 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
 
 
 void MainWindow::loadCatalogSelectors() {
-    if (m_marketCatalog) {
-        QString error;
-        const auto page = m_marketCatalog->execute({}, 500, 0, &error);
-        if (page) {
-            for (const auto& entry : page->entries) {
-                const QString label = QStringLiteral("%1 · %2 — %3 (%4 candles)")
-                    .arg(entry.providerSymbol, entry.interval, entry.providerId)
-                    .arg(entry.candleCount);
-                m_marketCatalogSelector->addItem(label, QVariantList{
-                    entry.providerId, entry.instrumentId, entry.interval});
-            }
-            if (page->hasMore) {
-                m_marketCatalogSelector->setToolTip(
-                    QStringLiteral("Showing the first 500 stored instruments; catalog pagination is available in the application layer"));
-            }
-            if (page->entries.isEmpty())
-                m_marketCatalogSelector->setItemText(0, QStringLiteral("No stored instruments yet"));
-            m_marketCatalogSelector->setEnabled(!page->entries.isEmpty());
-        } else {
-            m_marketCatalogSelector->setItemText(0, QStringLiteral("Instrument catalog unavailable"));
-            m_marketCatalogSelector->setToolTip(error);
-            m_marketCatalogSelector->setEnabled(false);
-        }
-    } else {
-        m_marketCatalogSelector->setItemText(0, QStringLiteral("Instrument catalog unavailable"));
+    loadMarketCatalogPage(0);
+    loadEconomicCatalogPage(0);
+}
+
+void MainWindow::loadMarketCatalogPage(qint64 offset) {
+    if (!m_marketCatalog) return;
+    QString error;
+    const auto page = m_marketCatalog->execute({}, 500, offset, &error);
+    m_marketCatalogSelector->clear();
+    if (!page) {
+        m_marketCatalogSelector->addItem(QStringLiteral("Instrument catalog unavailable"));
+        m_marketCatalogSelector->setToolTip(error);
         m_marketCatalogSelector->setEnabled(false);
+        m_marketCatalogPrevious->setEnabled(false);
+        m_marketCatalogNext->setEnabled(false);
+        m_marketCatalogPageLabel->setText(QStringLiteral("Unavailable"));
+        return;
     }
 
-    if (m_economicCatalog) {
-        QString error;
-        const auto page = m_economicCatalog->execute({}, 500, 0, &error);
-        if (page) {
-            for (const auto& entry : page->entries) {
-                const QString label = QStringLiteral("%1 — %2 (%3 observations)")
-                    .arg(entry.datasetId, entry.providerId)
-                    .arg(entry.observationCount);
-                m_economicCatalogSelector->addItem(label, QVariantList{
-                    entry.providerId, entry.datasetId});
-            }
-            if (page->hasMore) {
-                m_economicCatalogSelector->setToolTip(
-                    QStringLiteral("Showing the first 500 stored datasets; catalog pagination is available in the application layer"));
-            }
-            if (page->entries.isEmpty())
-                m_economicCatalogSelector->setItemText(0, QStringLiteral("No stored datasets yet"));
-            m_economicCatalogSelector->setEnabled(!page->entries.isEmpty());
-        } else {
-            m_economicCatalogSelector->setItemText(0, QStringLiteral("Dataset catalog unavailable"));
-            m_economicCatalogSelector->setToolTip(error);
-            m_economicCatalogSelector->setEnabled(false);
-        }
-    } else {
-        m_economicCatalogSelector->setItemText(0, QStringLiteral("Dataset catalog unavailable"));
-        m_economicCatalogSelector->setEnabled(false);
+    m_marketCatalogOffset = page->offset;
+    m_marketCatalogHasMore = page->hasMore;
+    m_marketCatalogSelector->addItem(
+        page->entries.isEmpty() ? QStringLiteral("No stored instruments on this page")
+                                : QStringLiteral("Select a stored instrument…"));
+    for (const auto& entry : page->entries) {
+        const QString label = QStringLiteral("%1 · %2 — %3 (%4 candles)")
+            .arg(entry.providerSymbol, entry.interval, entry.providerId)
+            .arg(entry.candleCount);
+        m_marketCatalogSelector->addItem(label, QVariantList{
+            entry.providerId, entry.instrumentId, entry.interval});
     }
+    m_marketCatalogSelector->setEnabled(!page->entries.isEmpty());
+    m_marketCatalogPrevious->setEnabled(m_marketCatalogOffset > 0);
+    m_marketCatalogNext->setEnabled(m_marketCatalogHasMore);
+    m_marketCatalogPageLabel->setText(
+        QStringLiteral("Page %1").arg(m_marketCatalogOffset / page->pageSize + 1));
+    m_marketCatalogSelector->setToolTip(
+        QStringLiteral("%1 stored instruments on this page").arg(page->entries.size()));
+}
+
+void MainWindow::loadEconomicCatalogPage(qint64 offset) {
+    if (!m_economicCatalog) return;
+    QString error;
+    const auto page = m_economicCatalog->execute({}, 500, offset, &error);
+    m_economicCatalogSelector->clear();
+    if (!page) {
+        m_economicCatalogSelector->addItem(QStringLiteral("Dataset catalog unavailable"));
+        m_economicCatalogSelector->setToolTip(error);
+        m_economicCatalogSelector->setEnabled(false);
+        m_economicCatalogPrevious->setEnabled(false);
+        m_economicCatalogNext->setEnabled(false);
+        m_economicCatalogPageLabel->setText(QStringLiteral("Unavailable"));
+        return;
+    }
+
+    m_economicCatalogOffset = page->offset;
+    m_economicCatalogHasMore = page->hasMore;
+    m_economicCatalogSelector->addItem(
+        page->entries.isEmpty() ? QStringLiteral("No stored datasets on this page")
+                                : QStringLiteral("Select a stored dataset…"));
+    for (const auto& entry : page->entries) {
+        const QString label = QStringLiteral("%1 — %2 (%3 observations)")
+            .arg(entry.datasetId, entry.providerId)
+            .arg(entry.observationCount);
+        m_economicCatalogSelector->addItem(label, QVariantList{
+            entry.providerId, entry.datasetId});
+    }
+    m_economicCatalogSelector->setEnabled(!page->entries.isEmpty());
+    m_economicCatalogPrevious->setEnabled(m_economicCatalogOffset > 0);
+    m_economicCatalogNext->setEnabled(m_economicCatalogHasMore);
+    m_economicCatalogPageLabel->setText(
+        QStringLiteral("Page %1").arg(m_economicCatalogOffset / page->pageSize + 1));
+    m_economicCatalogSelector->setToolTip(
+        QStringLiteral("%1 stored datasets on this page").arg(page->entries.size()));
 }
 
 void MainWindow::selectMarketCatalogEntry(int index) {
