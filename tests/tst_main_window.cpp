@@ -6,6 +6,7 @@
 #include <QComboBox>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QProgressBar>
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QTableWidget>
@@ -185,6 +186,23 @@ private slots:
         QVERIFY(economicChart != nullptr);
         QVERIFY(marketChart->minimumHeight() >= 200);
         QVERIFY(economicChart->minimumHeight() >= 200);
+    }
+
+    void refreshTaskControlsExposeIdleStateWithoutProviders() {
+        MainWindow window;
+        auto* status = window.findChild<QLabel*>("refreshTaskStatus");
+        auto* progress = window.findChild<QProgressBar*>("refreshTaskProgress");
+        auto* cancel = window.findChild<QPushButton*>("cancelRefreshButton");
+        auto* marketRefresh = window.findChild<QPushButton*>("refreshMarketButton");
+        auto* economicRefresh = window.findChild<QPushButton*>("refreshEconomicButton");
+        QVERIFY(status && progress && cancel && marketRefresh && economicRefresh);
+        QCOMPARE(status->text(), QStringLiteral("No refresh task running"));
+        QVERIFY(!cancel->isEnabled());
+        QVERIFY(!marketRefresh->isEnabled());
+        QVERIFY(!economicRefresh->isEnabled());
+        QCOMPARE(progress->minimum(), 0);
+        QCOMPARE(progress->maximum(), 1);
+        QCOMPARE(progress->value(), 0);
     }
 
     void window_starts_in_ready_state() {
