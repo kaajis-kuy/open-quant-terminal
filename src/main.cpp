@@ -14,7 +14,9 @@ int main(int argc, char* argv[]) {
     (void)composition.initialize();
 
     MainWindow window(composition.marketExplorerQuery(),
-                       composition.economicDataExplorerQuery());
+                       composition.economicDataExplorerQuery(),
+                       composition.marketInstrumentCatalogQuery(),
+                       composition.economicDatasetCatalogQuery());
     const QString marketState = composition.marketStatus().available
         ? QStringLiteral("Market data: available")
         : QStringLiteral("Market data: disabled");
