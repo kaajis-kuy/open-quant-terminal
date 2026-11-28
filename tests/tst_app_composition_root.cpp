@@ -3,12 +3,48 @@
 #include <QDir>
 #include <QFile>
 #include <QTemporaryDir>
+#include <QTimeZone>
 #include <QtTest>
 
 class AppCompositionRootTest final : public QObject {
     Q_OBJECT
 
 private slots:
+    void marketExplorerQueryBoundsDisplayRows() {
+        oqt::application::MarketExplorerQuery query(
+            [](const QString& provider, const QString& instrument, const QString& interval, QString*)
+                -> std::optional<oqt::data::CanonicalMarketSeries> {
+                oqt::data::CanonicalMarketSeries series;
+                series.providerId = provider;
+                series.instrumentId = instrument;
+                series.interval = interval;
+                for (int i = 0; i < 3; ++i) {
+                    oqt::data::CanonicalMarketBar bar;
+                    bar.timestamp = QDateTime::fromSecsSinceEpoch(i + 1, QTimeZone::UTC);
+                    bar.open = 1.0; bar.high = 2.0; bar.low = 0.5; bar.close = 1.5;
+                    series.bars.append(bar);
+                }
+                return series;
+            });
+        QString error;
+        const auto result = query.execute("yahoo_finance", "AAPL", "1d", &error, 2);
+        QVERIFY2(result.has_value(), qPrintable(error));
+        QCOMPARE(result->series.bars.size(), 2);
+        QVERIFY(result->displayTruncated);
+        QCOMPARE(result->series.bars.first().timestamp.toSecsSinceEpoch(), qint64(2));
+    }
+
+    void economicExplorerQueryValidatesRequiredIdentifiers() {
+        oqt::application::EconomicDataExplorerQuery query(
+            [](const QString&, const QString&, QString*)
+                -> std::optional<oqt::data::CanonicalDataset> {
+                return oqt::data::CanonicalDataset{};
+            });
+        QString error;
+        QVERIFY(!query.execute("fred", "", &error).has_value());
+        QVERIFY(error.contains("dataset"));
+    }
+
     void initializesSeparatePersistentDatabases() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
@@ -26,6 +62,8 @@ private slots:
         QVERIFY(composition.marketDatabasePath() != composition.economicDatabasePath());
         QVERIFY(composition.marketRefreshService() != nullptr);
         QVERIFY(composition.economicRefreshService() != nullptr);
+        QVERIFY(composition.marketExplorerQuery() != nullptr);
+        QVERIFY(composition.economicDataExplorerQuery() != nullptr);
     }
 
     void economicDatabaseFailureDoesNotDisableMarketModule() {
@@ -48,6 +86,7 @@ private slots:
         QVERIFY(!composition.economicStatus().errorMessage.isEmpty());
         QVERIFY(composition.marketRefreshService() != nullptr);
         QVERIFY(composition.economicRefreshService() == nullptr);
+        QVERIFY(composition.economicDataExplorerQuery() == nullptr);
     }
 
     void marketDatabaseFailureDoesNotDisableEconomicModule() {
@@ -68,6 +107,7 @@ private slots:
         QVERIFY(!composition.marketStatus().available);
         QVERIFY(composition.economicStatus().available);
         QVERIFY(composition.marketRefreshService() == nullptr);
+        QVERIFY(composition.marketExplorerQuery() == nullptr);
         QVERIFY(composition.economicRefreshService() != nullptr);
     }
 

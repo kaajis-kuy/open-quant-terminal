@@ -30,6 +30,8 @@ bool ensureParentDirectory(const QString& databasePath, QString* errorMessage) {
 } // namespace
 
 void AppCompositionRoot::reset() {
+    m_marketExplorerQuery.reset();
+    m_economicDataExplorerQuery.reset();
     m_fredRefresh.reset();
     m_yahooRefresh.reset();
     m_fredPipeline.reset();
@@ -92,6 +94,13 @@ bool AppCompositionRoot::initialize(const AppCompositionConfig& config,
             m_yahooPipeline = std::make_unique<providers::YahooPipeline>();
             m_yahooRefresh = std::make_unique<services::YahooMarketDataRefreshService>(
                 *m_yahooPipeline, *m_marketIngestion);
+            m_marketExplorerQuery = std::make_unique<application::MarketExplorerQuery>(
+                [store = m_marketStore.get()](const QString& providerId,
+                                              const QString& instrumentId,
+                                              const QString& interval,
+                                              QString* error) {
+                    return store->loadSeries(providerId, instrumentId, interval, error);
+                });
             m_marketStatus.available = true;
         } else {
             m_marketStore.reset();
@@ -109,6 +118,12 @@ bool AppCompositionRoot::initialize(const AppCompositionConfig& config,
             m_fredPipeline = std::make_unique<providers::FredPipeline>();
             m_fredRefresh = std::make_unique<services::FredEconomicRefreshService>(
                 *m_fredPipeline, *m_economicIngestion);
+            m_economicDataExplorerQuery = std::make_unique<application::EconomicDataExplorerQuery>(
+                [store = m_economicStore.get()](const QString& providerId,
+                                                const QString& datasetId,
+                                                QString* error) {
+                    return store->loadDataset(providerId, datasetId, error);
+                });
             m_economicStatus.available = true;
         } else {
             m_economicStore.reset();
@@ -182,6 +197,14 @@ services::YahooMarketDataRefreshService* AppCompositionRoot::marketRefreshServic
 
 services::FredEconomicRefreshService* AppCompositionRoot::economicRefreshService() {
     return m_fredRefresh.get();
+}
+
+application::MarketExplorerQuery* AppCompositionRoot::marketExplorerQuery() {
+    return m_marketExplorerQuery.get();
+}
+
+application::EconomicDataExplorerQuery* AppCompositionRoot::economicDataExplorerQuery() {
+    return m_economicDataExplorerQuery.get();
 }
 
 } // namespace oqt::app

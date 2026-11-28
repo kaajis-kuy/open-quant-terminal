@@ -13,7 +13,8 @@ int main(int argc, char* argv[]) {
     oqt::app::AppCompositionRoot composition;
     (void)composition.initialize();
 
-    MainWindow window;
+    MainWindow window(composition.marketExplorerQuery(),
+                       composition.economicDataExplorerQuery());
     const QString marketState = composition.marketStatus().available
         ? QStringLiteral("Market data: available")
         : QStringLiteral("Market data: disabled");
