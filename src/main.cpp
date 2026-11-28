@@ -4,6 +4,8 @@
 #include <QApplication>
 #include <QStatusBar>
 
+#include <utility>
+
 int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
     QApplication::setApplicationName("Open Quant Terminal");
@@ -16,7 +18,17 @@ int main(int argc, char* argv[]) {
     MainWindow window(composition.marketExplorerQuery(),
                        composition.economicDataExplorerQuery(),
                        composition.marketInstrumentCatalogQuery(),
-                       composition.economicDatasetCatalogQuery());
+                       composition.economicDatasetCatalogQuery(),
+                       composition.marketRefreshService(),
+                       composition.economicRefreshService(),
+                       [&composition](const QString& datasetId, const QString& requestId,
+                                      QString* errorMessage) {
+                           oqt::providers::FredObservationRequest request;
+                           request.seriesId = datasetId.startsWith(QStringLiteral("fred."))
+                               ? datasetId.mid(5) : datasetId;
+                           return composition.refreshEconomicData(
+                               std::move(request), datasetId, requestId, errorMessage);
+                       });
     const QString marketState = composition.marketStatus().available
         ? QStringLiteral("Market data: available")
         : QStringLiteral("Market data: disabled");
