@@ -101,7 +101,8 @@ private slots:
         QVERIFY(!composition.economicStatus().errorMessage.isEmpty());
         QVERIFY(composition.marketRefreshService() != nullptr);
         QVERIFY(composition.economicRefreshService() == nullptr);
-        QVERIFY(composition.economicDataExplorerQuery() == nullptr);\n        QVERIFY(composition.economicDatasetCatalogQuery() == nullptr);
+        QVERIFY(composition.economicDataExplorerQuery() == nullptr);
+        QVERIFY(composition.economicDatasetCatalogQuery() == nullptr);
     }
 
     void marketDatabaseFailureDoesNotDisableEconomicModule() {
