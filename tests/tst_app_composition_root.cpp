@@ -35,7 +35,10 @@ private slots:
         QVERIFY2(result.has_value(), qPrintable(error));
         QCOMPARE(result->series.bars.size(), 2);
         QVERIFY(result->displayTruncated);
-        QCOMPARE(result->series.bars.first().timestamp.toSecsSinceEpoch(), qint64(2));
+        QCOMPARE(result->series.bars.first().timestamp.toSecsSinceEpoch(), qint64(1));
+        QVERIFY(result->hasMore);
+        QCOMPARE(result->nextOffset, qint64(2));
+        QCOMPARE(result->pageSize, qsizetype(2));
     }
 
     void economicExplorerQueryValidatesRequiredIdentifiers() {
