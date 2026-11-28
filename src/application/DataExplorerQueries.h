@@ -4,6 +4,7 @@
 #include "core/data/MarketData.h"
 
 #include <functional>
+#include <limits>
 #include <optional>
 #include <utility>
 
@@ -57,7 +58,8 @@ public:
             if (errorMessage) *errorMessage = QStringLiteral("Market data query is unavailable");
             return std::nullopt;
         }
-        if (pageSize <= 0 || pageSize > 5000 || offset < 0) {
+        if (pageSize <= 0 || pageSize > 5000 || offset < 0
+            || offset > std::numeric_limits<qint64>::max() - pageSize - 1) {
             if (errorMessage) *errorMessage = QStringLiteral("Page size must be between 1 and 5000 and offset cannot be negative");
             return std::nullopt;
         }
