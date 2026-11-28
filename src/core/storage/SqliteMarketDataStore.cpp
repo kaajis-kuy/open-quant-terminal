@@ -741,7 +741,10 @@ SqliteMarketDataStore::loadInstrumentCatalog(
         "OR s.provider_symbol LIKE ? OR s.interval LIKE ?) "
         "GROUP BY s.provider_id,s.instrument_id,s.interval "
         "ORDER BY s.provider_id ASC,s.instrument_id ASC,s.interval ASC LIMIT ? OFFSET ?"));
-    query.addBindValue(filter);
+    // Bind the normalized pattern for the empty-search predicate as well.
+    // A default-constructed QString is null in Qt, and SQLite evaluates NULL = ''
+    // as NULL (not true), which would otherwise hide every catalog row.
+    query.addBindValue(pattern);
     query.addBindValue(pattern);
     query.addBindValue(pattern);
     query.addBindValue(pattern);
