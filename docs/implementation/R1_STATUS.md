@@ -3,8 +3,8 @@
 - Architecture decisions P-ARCH-01 through P-ARCH-07 were accepted by the maintainer on 2026-11-28.
 - Current increment: application query/read-model boundary, initial read-only explorers, and SQL-backed pagination for both market and economic observations.
 - Query services are composed from existing SQLite stores through AppCompositionRoot; widgets do not access concrete storage classes or provider clients directly.
-- Market pagination uses deterministic timestamp ordering and SQL LIMIT/OFFSET, with one extra row used to expose hasMore.
-- Economic pagination uses deterministic ordering across series, period and the remaining observation key fields, with SQL LIMIT/OFFSET and one extra row for hasMore.
+- Market pagination queries newest timestamps first with SQL LIMIT/OFFSET and one extra row for hasMore, then restores chronological order within each page.
+- Economic pagination queries the newest stable-key slice first with SQL LIMIT/OFFSET and one extra row for hasMore, then restores ascending order within each page.
 - Existing unpaged store APIs remain available for backward compatibility.
 - Page size is bounded to 1..5000; negative offsets and unsupported offset ranges are rejected.
 - Tests now cover market/economic first page, subsequent page, exhausted page, invalid page parameters, and application read-model page metadata.
