@@ -9,6 +9,7 @@
 #include <QSqlQuery>
 #include <QUuid>
 
+#include <limits>
 #include <utility>
 
 namespace oqt::storage {
@@ -479,13 +480,14 @@ std::optional<oqt::data::CanonicalDataset> SqliteCanonicalDatasetStore::loadData
     metadata.finish();
 
     QSqlQuery observations(m_database);
-    observations.prepare(QStringLiteral(
+    QString observationsSql = QStringLiteral(
         "SELECT series_id,period,value,unit,frequency,geography,seasonal_adjustment,measure_type,"
         "currency,base_currency,quote_currency,scale_multiplier,denominator "
         "FROM economic_observations WHERE provider_id=? AND dataset_id=? "
         "ORDER BY series_id,period,unit,frequency,geography,seasonal_adjustment,measure_type,"
         "currency,base_currency,quote_currency,denominator");
-    if (pageSize > 0) observations.prepare(observations.lastQuery() + QStringLiteral(" LIMIT ? OFFSET ?"));
+    if (pageSize > 0) observationsSql += QStringLiteral(" LIMIT ? OFFSET ?");
+    observations.prepare(observationsSql);
     observations.addBindValue(providerId);
     observations.addBindValue(datasetId);
     if (pageSize > 0) {
