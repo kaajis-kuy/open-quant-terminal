@@ -4,6 +4,8 @@
 
 #include <functional>
 
+namespace oqt::providers { struct AdapterResult; }
+
 namespace oqt::services {
 class YahooMarketDataRefreshService;
 class FredEconomicRefreshService;
@@ -31,6 +33,11 @@ public:
     explicit MainWindow(QWidget* parent = nullptr);
     MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
                oqt::application::EconomicDataExplorerQuery* economicQuery,
+               QWidget* parent = nullptr);
+    MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
+               oqt::application::EconomicDataExplorerQuery* economicQuery,
+               oqt::application::MarketInstrumentCatalogQuery* marketCatalog,
+               oqt::application::EconomicDatasetCatalogQuery* economicCatalog,
                QWidget* parent = nullptr);
     MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
                oqt::application::EconomicDataExplorerQuery* economicQuery,
