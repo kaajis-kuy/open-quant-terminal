@@ -1,9 +1,9 @@
 #pragma once
 
+#include "core/providers/ProviderResponse.h"
+
 #include <QObject>
 #include <QString>
-
-namespace oqt::providers { struct AdapterResult; }
 
 namespace oqt::application {
 
