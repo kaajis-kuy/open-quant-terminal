@@ -19,6 +19,12 @@ bool YahooMarketDataRefreshService::isBusy() const {
     return !m_activeRequestId.isEmpty();
 }
 
+void YahooMarketDataRefreshService::cancel() {
+    if (isBusy()) {
+        m_pipeline.cancel();
+    }
+}
+
 bool YahooMarketDataRefreshService::refresh(
     oqt::providers::YahooChartRequest request,
     QString instrumentId,
