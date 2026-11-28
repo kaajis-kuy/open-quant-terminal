@@ -347,6 +347,8 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
     m_marketInstrument = new QLineEdit(QStringLiteral("AAPL"), marketPage);
     m_marketInstrument->setObjectName("marketInstrumentInput");
     m_marketInstrument->setPlaceholderText("Instrument ID");
+    QObject::connect(m_marketInstrument, &QLineEdit::textEdited, this,
+                     [this] { m_marketProviderSymbol.clear(); });
     m_marketInterval = new QLineEdit(QStringLiteral("1d"), marketPage);
     m_marketInterval->setObjectName("marketIntervalInput");
     m_marketInterval->setMaximumWidth(100);
@@ -387,7 +389,7 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
         request.interval = m_marketInterval->text().trimmed();
         request.range = QStringLiteral("1y");
         const QString requestId = QUuid::createUuid().toString(QUuid::WithoutBraces);
-        if (!m_marketRefresh->refresh(request, request.symbol, requestId)) {
+        if (!m_marketRefresh->refresh(request, m_marketInstrument->text().trimmed(), requestId)) {
             statusBar()->showMessage(QStringLiteral("Market refresh could not be started; check symbol and busy state"));
             return;
         }
