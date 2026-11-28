@@ -42,10 +42,17 @@
 - Added UI coverage for idle task status, disabled cancellation, disabled unavailable refresh actions, and progress indicator reset.
 - Exact-head CI for this increment is pending; do not claim verification until the workflow for the latest PR head passes.
 
+## Integration-test increment in progress
+
+- Extended the Yahoo refresh-service integration test to verify the complete mock HTTP provider → Yahoo pipeline/normalization → ingestion → SQLite → application `MarketExplorerQuery` read-model path.
+- Extended the FRED refresh-service integration test to verify the mock HTTP provider → FRED pipeline/normalization → ingestion → SQLite → application `EconomicDataExplorerQuery` read-model path.
+- These tests use loopback mock HTTP servers and temporary SQLite databases; they do not call live Yahoo/FRED endpoints or require credentials.
+- Existing Yahoo cancellation and provider-failure cases continue to assert that unsuccessful requests do not persist a dataset.
+- Exact-head CI for this test increment is pending.
+
 ## Remaining R1 work
-- Broader mock-provider-to-storage-to-application integration tests.
-- UI smoke/regression tests and final exact-head CI/review.
-- Broader mock-provider-to-storage-to-application integration tests.
-- UI smoke/regression tests and final exact-head CI/review.
+- Add explicit partial-data round-trip coverage and economic-provider failure/cancellation coverage where not already exercised.
+- Add broader application/composition integration and UI smoke/regression tests.
+- Run final exact-head CI and review all stacked PRs; no merge without maintainer approval.
 
 This is an implementation checkpoint, not an R1 completion claim. Pagination exact-head CI is green. Live provider behavior and data entitlements remain unverified. Pull-request merge requires separate maintainer approval.

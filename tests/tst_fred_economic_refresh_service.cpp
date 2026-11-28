@@ -2,6 +2,7 @@
 #include "core/services/EconomicDataIngestionService.h"
 #include "core/services/FredEconomicRefreshService.h"
 #include "core/storage/SqliteCanonicalDatasetStore.h"
+#include "application/DataExplorerQueries.h"
 
 #include <QDir>
 #include <QHash>
@@ -92,6 +93,26 @@ private slots:
         QCOMPARE(persisted->observations.size(), qsizetype(2));
         QCOMPARE(*persisted->observations.at(0).value, 100.5);
         QCOMPARE(*persisted->observations.at(1).value, 101.5);
+
+        // Verify the stored observations are exposed through the application
+        // query/read-model boundary after the full mock-provider refresh flow.
+        application::EconomicDataExplorerQuery query(
+            [&store](const QString& provider, const QString& dataset,
+                     qsizetype pageSize, qint64 offset, QString* queryError)
+                -> std::optional<application::QueryPage<data::CanonicalDataset>> {
+                const auto page = store.loadDatasetPage(
+                    provider, dataset, pageSize, offset, queryError);
+                if (!page) return std::nullopt;
+                return application::QueryPage<data::CanonicalDataset>{
+                    page->dataset, page->hasMore, page->offset, page->pageSize};
+            });
+        const auto readModel = query.execute(
+            QStringLiteral("fred"), QStringLiteral("fred.gdp"), &error, 10, 0);
+        QVERIFY2(readModel.has_value(), qPrintable(error));
+        QCOMPARE(readModel->dataset.observations.size(), qsizetype(2));
+        QCOMPARE(*readModel->dataset.observations.at(0).value, 100.5);
+        QCOMPARE(*readModel->dataset.observations.at(1).value, 101.5);
+        QVERIFY(!readModel->hasMore);
     }
 };
 

@@ -2,6 +2,7 @@
 
 #include "core/providers/YahooClient.h"
 #include "core/storage/SqliteMarketDataStore.h"
+#include "application/DataExplorerQueries.h"
 
 #include <QHash>
 #include <QTemporaryDir>
@@ -121,6 +122,27 @@ private slots:
         QCOMPARE(stored->bars.size(), qsizetype(2));
         QCOMPARE(stored->bars.at(1).close, 105.0);
         QVERIFY(stored->validate().isEmpty());
+
+        // Verify the persisted provider result is visible through the application
+        // read-model boundary, not only through the storage API.
+        oqt::application::MarketExplorerQuery query(
+            [&store](const QString& provider, const QString& instrument,
+                     const QString& interval, qsizetype pageSize, qint64 offset,
+                     QString* queryError)
+                -> std::optional<oqt::application::QueryPage<oqt::data::CanonicalMarketSeries>> {
+                const auto page = store.loadSeriesPage(
+                    provider, instrument, interval, pageSize, offset, queryError);
+                if (!page) return std::nullopt;
+                return oqt::application::QueryPage<oqt::data::CanonicalMarketSeries>{
+                    page->series, page->hasMore, page->offset, page->pageSize};
+            });
+        const auto readModel = query.execute(
+            QStringLiteral("yahoo_finance"), QStringLiteral("equity.aapl"),
+            QStringLiteral("1d"), &error, 10, 0);
+        QVERIFY2(readModel.has_value(), qPrintable(error));
+        QCOMPARE(readModel->series.bars.size(), qsizetype(2));
+        QCOMPARE(readModel->series.bars.at(1).close, 105.0);
+        QVERIFY(!readModel->hasMore);
     }
 
     void cancellationCompletesWithoutPersisting() {
