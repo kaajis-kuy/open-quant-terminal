@@ -1,7 +1,7 @@
-# OQT Target Architecture — Phase 2 Proposal
+# OQT Target Architecture — Accepted Architecture
 
 - Date: 2026-11-28
-- Status: **Proposed — maintainer review required**
+- Status: **Accepted by maintainer on 2026-11-28**
 - Based on: OQT main `726cd6892638d6282b6c0aa135081056bde8f1e8`; Fincept reference revision `914134de5fd227fe66969c4591ac9ca7e461cdf4`.
 - Scope: full-feature desktop terminal first. Lite Edition remains a later deployment/profile decision.
 
@@ -222,15 +222,15 @@ This is a logical target, not an instruction to create empty directories or move
 
 | ID | Proposal | Status |
 | --- | --- | --- |
-| P-ARCH-01 | Modular monolith as initial deployment; avoid microservices | Proposed |
-| P-ARCH-02 | UI depends on application use cases, not provider/storage classes | Proposed |
-| P-ARCH-03 | Add application query/read-model boundary before broad UI work | Proposed |
-| P-ARCH-04 | Preserve separate market/economic stores; defer columnar DB until measured | Proposed |
-| P-ARCH-05 | Python analytics runs in an isolated optional worker when justified | Proposed |
-| P-ARCH-06 | Read-only by default; live execution is separate and explicitly gated | Proposed |
-| P-ARCH-07 | Full-feature baseline first; Lite is a resource profile after capability baseline | Proposed |
+| P-ARCH-01 | Modular monolith as initial deployment; avoid microservices | Accepted |
+| P-ARCH-02 | UI depends on application use cases, not provider/storage classes | Accepted |
+| P-ARCH-03 | Add application query/read-model boundary before broad UI work | Accepted |
+| P-ARCH-04 | Preserve separate market/economic stores; defer columnar DB until measured | Accepted |
+| P-ARCH-05 | Python analytics runs in an isolated optional worker when justified | Accepted |
+| P-ARCH-06 | Read-only by default; live execution is separate and explicitly gated | Accepted |
+| P-ARCH-07 | Full-feature baseline first; Lite is a resource profile after capability baseline | Accepted |
 
-No proposal above is an accepted implementation decision until the maintainer approves it.
+All seven decisions above were explicitly approved by the maintainer on 2026-11-28. R1 implementation is authorized. Approval does not authorize merging any pull request; merge approval remains a separate gate.
 
 ## 10. Open decisions for maintainer review
 
@@ -262,4 +262,4 @@ Implications:
 - Reimplement independently using OQT-owned code and lawful integrations; do not copy protected source/assets/branding or bypass Enterprise/provider access controls.
 - Build Full Feature Edition first; Lite is a later resource profile sharing the same domain contracts.
 
-This accepted product objective does not automatically accept technical proposals P-ARCH-01 through P-ARCH-07. Their implementation details remain subject to separate maintainer review. The current first-slice recommendation (Market Explorer + Economic Data Explorer) remains a foundation milestone, not a narrowing of the final product scope.
+The maintainer subsequently accepted P-ARCH-01 through P-ARCH-07 on 2026-11-28. Their implementation is governed by this ADR and the R1 milestone. This acceptance does not approve PR merge. The current first-slice recommendation (Market Explorer + Economic Data Explorer) remains a foundation milestone, not a narrowing of the final product scope.
