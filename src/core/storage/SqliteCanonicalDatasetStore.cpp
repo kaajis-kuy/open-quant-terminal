@@ -568,7 +568,10 @@ SqliteCanonicalDatasetStore::loadDatasetCatalog(
         "WHERE (?='' OR d.provider_id LIKE ? OR d.dataset_id LIKE ?) "
         "GROUP BY d.provider_id,d.dataset_id "
         "ORDER BY d.provider_id ASC,d.dataset_id ASC LIMIT ? OFFSET ?"));
-    query.addBindValue(filter);
+    // Bind the normalized pattern for the empty-search predicate as well.
+    // A default-constructed QString is null in Qt, and SQLite evaluates NULL = ''
+    // as NULL (not true), which would otherwise hide every catalog row.
+    query.addBindValue(pattern);
     query.addBindValue(pattern);
     query.addBindValue(pattern);
     query.addBindValue(pageSize + 1);
