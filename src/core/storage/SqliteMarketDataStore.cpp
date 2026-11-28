@@ -10,6 +10,7 @@
 #include <QTimeZone>
 #include <QUuid>
 
+#include <algorithm>
 #include <limits>
 
 namespace oqt::storage {
@@ -642,7 +643,7 @@ std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSerie
     if (endExclusiveMs.has_value()) {
         barsSql += QStringLiteral(" AND timestamp_ms<?");
     }
-    barsSql += QStringLiteral(" ORDER BY timestamp_ms ASC");
+    barsSql += QStringLiteral(" ORDER BY timestamp_ms DESC");
     if (maxBars > 0) {
         barsSql += QStringLiteral(" LIMIT ? OFFSET ?");
     }
@@ -683,6 +684,10 @@ std::optional<oqt::data::CanonicalMarketSeries> SqliteMarketDataStore::loadSerie
         series.quality.warnings.append(
             QStringLiteral("OHLCV range result truncated at maxBars=%1").arg(maxBars));
     }
+
+    // Fetch newest rows first for the initial page, then restore chronological
+    // order for tables and charts. OFFSET therefore pages backwards in history.
+    std::reverse(series.bars.begin(), series.bars.end());
 
     // A valid query can return no candles even when the stored full series
     // was non-empty. Represent the returned slice as an empty result.
