@@ -4,6 +4,14 @@
 #include "application/CatalogQueries.h"
 
 #include <QHeaderView>
+#include <QPainter>
+#include <QPaintEvent>
+#include <QMap>
+#include <QPointF>
+#include <QColor>
+#include <QPolygonF>
+#include <QSizePolicy>
+#include <limits>
 #include <QComboBox>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -51,6 +59,165 @@ QString optionalNumber(const std::optional<double>& value) {
 }
 
 } // namespace
+
+
+class OqtChartWidget final : public QWidget {
+public:
+    explicit OqtChartWidget(QWidget* parent = nullptr) : QWidget(parent) {
+        setMinimumHeight(250);
+        setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    }
+
+    void setMarketBars(const QVector<oqt::data::CanonicalMarketBar>& bars) {
+        m_mode = Mode::Market;
+        m_bars = bars;
+        m_observations.clear();
+        update();
+    }
+
+    void setEconomicObservations(const QVector<oqt::data::CanonicalObservation>& observations) {
+        m_mode = Mode::Economic;
+        m_observations = observations;
+        m_bars.clear();
+        update();
+    }
+
+    void clearData() {
+        m_bars.clear();
+        m_observations.clear();
+        update();
+    }
+
+protected:
+    void paintEvent(QPaintEvent*) override {
+        QPainter painter(this);
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.fillRect(rect(), palette().base());
+        const QRectF area = QRectF(rect()).adjusted(54, 28, -18, -30);
+        painter.setPen(palette().text().color());
+        painter.drawText(QRectF(12, 5, width() - 24, 20),
+                         Qt::AlignLeft | Qt::AlignVCenter,
+                         m_mode == Mode::Market ? QStringLiteral("OHLCV · Candles and volume")
+                                                : QStringLiteral("Economic observations · Time series"));
+
+        if (m_mode == Mode::Market) paintMarket(painter, area);
+        else paintEconomic(painter, area);
+    }
+
+private:
+    enum class Mode { Market, Economic };
+    Mode m_mode = Mode::Market;
+    QVector<oqt::data::CanonicalMarketBar> m_bars;
+    QVector<oqt::data::CanonicalObservation> m_observations;
+
+    void drawGrid(QPainter& painter, const QRectF& area) const {
+        painter.setPen(QPen(palette().mid().color(), 1, Qt::DotLine));
+        for (int i = 0; i <= 4; ++i) {
+            const qreal y = area.top() + area.height() * i / 4.0;
+            painter.drawLine(QPointF(area.left(), y), QPointF(area.right(), y));
+        }
+    }
+
+    void paintMarket(QPainter& painter, const QRectF& area) const {
+        if (m_bars.isEmpty()) {
+            painter.setPen(palette().mid().color());
+            painter.drawText(area, Qt::AlignCenter, QStringLiteral("No market data loaded"));
+            return;
+        }
+        double minPrice = std::numeric_limits<double>::max();
+        double maxPrice = std::numeric_limits<double>::lowest();
+        double maxVolume = 0.0;
+        for (const auto& bar : m_bars) {
+            minPrice = qMin(minPrice, bar.low);
+            maxPrice = qMax(maxPrice, bar.high);
+            if (bar.volume) maxVolume = qMax(maxVolume, *bar.volume);
+        }
+        if (qFuzzyCompare(minPrice, maxPrice)) { minPrice -= 1.0; maxPrice += 1.0; }
+        const qreal volumeTop = area.top() + area.height() * 0.72;
+        const QRectF priceArea(area.left(), area.top(), area.width(), volumeTop - area.top());
+        drawGrid(painter, priceArea);
+        const qreal step = priceArea.width() / qMax<qsizetype>(1, m_bars.size());
+        const qreal candleWidth = qMax<qreal>(1.0, qMin<qreal>(12.0, step * 0.65));
+        for (qsizetype i = 0; i < m_bars.size(); ++i) {
+            const auto& bar = m_bars.at(i);
+            const qreal x = priceArea.left() + (i + 0.5) * step;
+            const auto y = [&](double value) {
+                return priceArea.bottom() - (value - minPrice) / (maxPrice - minPrice) * priceArea.height();
+            };
+            const QColor candle = bar.close >= bar.open ? QColor(30, 160, 105) : QColor(210, 75, 75);
+            painter.setPen(QPen(candle, 1.2));
+            painter.drawLine(QPointF(x, y(bar.high)), QPointF(x, y(bar.low)));
+            const qreal bodyTop = qMin(y(bar.open), y(bar.close));
+            const qreal bodyHeight = qMax<qreal>(1.0, qAbs(y(bar.open) - y(bar.close)));
+            painter.fillRect(QRectF(x - candleWidth / 2, bodyTop, candleWidth, bodyHeight), candle);
+            if (bar.volume && maxVolume > 0.0) {
+                const qreal h = (*bar.volume / maxVolume) * (area.bottom() - volumeTop - 3);
+                painter.setPen(Qt::NoPen);
+                painter.setBrush(candle);
+                painter.drawRect(QRectF(x - candleWidth / 2, area.bottom() - h,
+                                         candleWidth, h));
+            }
+        }
+        painter.setPen(palette().text().color());
+        painter.drawText(QRectF(4, priceArea.top(), 46, 16), Qt::AlignRight,
+                         QString::number(maxPrice, 'g', 6));
+        painter.drawText(QRectF(4, priceArea.bottom() - 16, 46, 16), Qt::AlignRight,
+                         QString::number(minPrice, 'g', 6));
+        painter.drawText(QRectF(area.left(), volumeTop, area.width(), 18),
+                         Qt::AlignLeft, QStringLiteral("Volume"));
+    }
+
+    void paintEconomic(QPainter& painter, const QRectF& area) const {
+        QMap<QString, QVector<QPointF>> series;
+        double minValue = std::numeric_limits<double>::max();
+        double maxValue = std::numeric_limits<double>::lowest();
+        for (const auto& observation : m_observations) {
+            if (!observation.value || !observation.period.isValid()) continue;
+            series[observation.seriesId].append(
+                QPointF(observation.period.toJulianDay(), *observation.value));
+            minValue = qMin(minValue, *observation.value);
+            maxValue = qMax(maxValue, *observation.value);
+        }
+        if (series.isEmpty()) {
+            painter.setPen(palette().mid().color());
+            painter.drawText(area, Qt::AlignCenter, QStringLiteral("No numeric economic observations loaded"));
+            return;
+        }
+        if (qFuzzyCompare(minValue, maxValue)) { minValue -= 1.0; maxValue += 1.0; }
+        qint64 minDate = std::numeric_limits<qint64>::max();
+        qint64 maxDate = std::numeric_limits<qint64>::lowest();
+        for (auto it = series.cbegin(); it != series.cend(); ++it) {
+            for (const auto& point : it.value()) {
+                minDate = qMin(minDate, static_cast<qint64>(point.x()));
+                maxDate = qMax(maxDate, static_cast<qint64>(point.x()));
+            }
+        }
+        if (minDate == maxDate) ++maxDate;
+        drawGrid(painter, area);
+        const QList<QColor> paletteColors = {QColor(40, 120, 210), QColor(30, 160, 105),
+                                             QColor(210, 120, 45), QColor(160, 90, 190)};
+        int colorIndex = 0;
+        for (auto it = series.cbegin(); it != series.cend(); ++it, ++colorIndex) {
+            const QColor color = paletteColors.at(colorIndex % paletteColors.size());
+            painter.setPen(QPen(color, 2));
+            QPolygonF line;
+            for (const auto& point : it.value()) {
+                const qreal x = area.left() + (point.x() - minDate) / qreal(maxDate - minDate) * area.width();
+                const qreal y = area.bottom() - (point.y() - minValue) / (maxValue - minValue) * area.height();
+                line << QPointF(x, y);
+            }
+            painter.drawPolyline(line);
+            painter.drawText(QRectF(area.left() + 6, area.top() + 4 + (colorIndex * 17),
+                                    area.width() - 12, 16), Qt::AlignLeft,
+                             it.key().isEmpty() ? QStringLiteral("Series") : it.key());
+        }
+        painter.setPen(palette().text().color());
+        painter.drawText(QRectF(4, area.top(), 46, 16), Qt::AlignRight,
+                         QString::number(maxValue, 'g', 6));
+        painter.drawText(QRectF(4, area.bottom() - 16, 46, 16), Qt::AlignRight,
+                         QString::number(minValue, 'g', 6));
+    }
+};
 
 MainWindow::MainWindow(QWidget* parent)
     : MainWindow(nullptr, nullptr, nullptr, nullptr, parent) {
@@ -148,6 +315,9 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
     m_marketSummary->setObjectName("marketSummary");
     m_marketSummary->setWordWrap(true);
     marketLayout->addWidget(m_marketSummary);
+    m_marketChart = new OqtChartWidget(marketPage);
+    m_marketChart->setObjectName("marketChart");
+    marketLayout->addWidget(m_marketChart);
     m_marketTable = makeTable(marketPage,
         {QStringLiteral("Timestamp (UTC)"), QStringLiteral("Open"), QStringLiteral("High"),
          QStringLiteral("Low"), QStringLiteral("Close"), QStringLiteral("Adj. Close"),
@@ -209,6 +379,9 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
     m_economicSummary->setObjectName("economicSummary");
     m_economicSummary->setWordWrap(true);
     economicLayout->addWidget(m_economicSummary);
+    m_economicChart = new OqtChartWidget(economicPage);
+    m_economicChart->setObjectName("economicChart");
+    economicLayout->addWidget(m_economicChart);
     m_economicTable = makeTable(economicPage,
         {QStringLiteral("Series"), QStringLiteral("Period"), QStringLiteral("Value"),
          QStringLiteral("Unit"), QStringLiteral("Frequency"), QStringLiteral("Geography")});
@@ -330,12 +503,14 @@ void MainWindow::loadMarketSeries() {
         m_marketInterval->text(), &error, 1000);
     m_marketTable->setRowCount(0);
     if (!result) {
+        m_marketChart->clearData();
         m_marketSummary->setText(error);
         statusBar()->showMessage(QStringLiteral("Market query failed: %1").arg(error));
         return;
     }
 
     const auto& series = result->series;
+    m_marketChart->setMarketBars(series.bars);
     m_marketTable->setRowCount(static_cast<int>(series.bars.size()));
     for (qsizetype i = 0; i < series.bars.size(); ++i) {
         const auto& bar = series.bars.at(i);
@@ -368,12 +543,14 @@ void MainWindow::loadEconomicDataset() {
         m_economicProvider->text(), m_economicDataset->text(), &error, 1000);
     m_economicTable->setRowCount(0);
     if (!result) {
+        m_economicChart->clearData();
         m_economicSummary->setText(error);
         statusBar()->showMessage(QStringLiteral("Economic query failed: %1").arg(error));
         return;
     }
 
     const auto& dataset = result->dataset;
+    m_economicChart->setEconomicObservations(dataset.observations);
     m_economicTable->setRowCount(static_cast<int>(dataset.observations.size()));
     for (qsizetype i = 0; i < dataset.observations.size(); ++i) {
         const auto& observation = dataset.observations.at(i);

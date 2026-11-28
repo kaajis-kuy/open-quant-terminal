@@ -17,12 +17,19 @@
 - Added catalog data models, bounded 1..500 paging, stable ordering, bound search parameters, and hasMore metadata.
 - Added application catalog query boundaries and AppCompositionRoot wiring, preserving the UI/storage/provider separation.
 - Added storage tests for counts, date ranges, search filtering, empty results and invalid page bounds; added composition/degraded-mode tests.
-- Exact-head CI for the catalog and selector implementation is pending on PR #7; do not claim it verified until the latest head passes.
+- Exact-head CI for PR #7 head `064e421894cafaf46a802770a58695c049a13ba1` passed in run [#46133422695](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46133422695).
 - Catalog discovery is local-only and read-only; it makes no provider network requests.
 
-## Remaining R1 work
+## Chart views increment
 
-- Chart views backed by the same paged query models as the tables.
+- Added a lightweight custom Qt Widgets chart surface; no additional charting dependency is required.
+- Market Explorer renders OHLC candlesticks and a volume panel from the market read model.
+- Economic Explorer renders numeric observations as time-series lines grouped by series ID.
+- Both charts consume the exact same application query results as their corresponding tables; no direct database/provider access was added to widgets.
+- UI regression test checks that both chart surfaces are present.
+- Exact-head CI for chart views is pending; this increment is not verified until its workflow completes.
+
+## Remaining R1 work
 - Refresh controls and observable task state: progress, cancellation, completion, and actionable errors.
 - Broader mock-provider-to-storage-to-application integration tests.
 - UI smoke/regression tests and final exact-head CI/review.

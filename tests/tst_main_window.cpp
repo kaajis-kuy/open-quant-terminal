@@ -177,6 +177,16 @@ private slots:
         QVERIFY(!economicPrevious->isEnabled());
     }
 
+    void explorersExposeDedicatedChartViews() {
+        MainWindow window;
+        auto* marketChart = window.findChild<QWidget*>("marketChart");
+        auto* economicChart = window.findChild<QWidget*>("economicChart");
+        QVERIFY(marketChart != nullptr);
+        QVERIFY(economicChart != nullptr);
+        QVERIFY(marketChart->minimumHeight() >= 200);
+        QVERIFY(economicChart->minimumHeight() >= 200);
+    }
+
     void window_starts_in_ready_state() {
         MainWindow window;
 
