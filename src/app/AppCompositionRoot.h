@@ -1,5 +1,6 @@
 #pragma once
 
+#include "application/DataExplorerQueries.h"
 #include "core/providers/FredPipeline.h"
 #include "core/providers/YahooPipeline.h"
 #include "core/services/EconomicDataIngestionService.h"
@@ -58,6 +59,8 @@ public:
 
     [[nodiscard]] services::YahooMarketDataRefreshService* marketRefreshService();
     [[nodiscard]] services::FredEconomicRefreshService* economicRefreshService();
+    [[nodiscard]] application::MarketExplorerQuery* marketExplorerQuery();
+    [[nodiscard]] application::EconomicDataExplorerQuery* economicDataExplorerQuery();
 
 private:
     void reset();
@@ -67,6 +70,8 @@ private:
     ModuleStartupStatus m_marketStatus;
     ModuleStartupStatus m_economicStatus;
 
+    std::unique_ptr<application::MarketExplorerQuery> m_marketExplorerQuery;
+    std::unique_ptr<application::EconomicDataExplorerQuery> m_economicDataExplorerQuery;
     std::unique_ptr<storage::SqliteMarketDataStore> m_marketStore;
     std::unique_ptr<storage::SqliteCanonicalDatasetStore> m_economicStore;
     std::unique_ptr<services::MarketDataIngestionService> m_marketIngestion;
