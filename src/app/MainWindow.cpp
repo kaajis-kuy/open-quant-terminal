@@ -16,6 +16,7 @@
 #include <QPolygonF>
 #include <QSizePolicy>
 #include <limits>
+#include <utility>
 #include <QComboBox>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -381,7 +382,8 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
     QObject::connect(m_marketRefreshButton, &QPushButton::clicked, this, [this] {
         if (!m_marketRefresh || m_marketRefresh->isBusy() || !m_marketRequestId.isEmpty()) return;
         oqt::providers::YahooChartRequest request;
-        request.symbol = m_marketInstrument->text().trimmed();
+        request.symbol = m_marketProviderSymbol.isEmpty()
+            ? m_marketInstrument->text().trimmed() : m_marketProviderSymbol;
         request.interval = m_marketInterval->text().trimmed();
         request.range = QStringLiteral("1y");
         const QString requestId = QUuid::createUuid().toString(QUuid::WithoutBraces);
@@ -525,7 +527,7 @@ void MainWindow::loadMarketCatalogPage(qint64 offset) {
             .arg(entry.providerSymbol, entry.interval, entry.providerId)
             .arg(entry.candleCount);
         m_marketCatalogSelector->addItem(label, QVariantList{
-            entry.providerId, entry.instrumentId, entry.interval});
+            entry.providerId, entry.instrumentId, entry.interval, entry.providerSymbol});
     }
     m_marketCatalogSelector->setEnabled(!page->entries.isEmpty());
     m_marketCatalogPrevious->setEnabled(m_marketCatalogOffset > 0);
@@ -575,10 +577,11 @@ void MainWindow::loadEconomicCatalogPage(qint64 offset) {
 void MainWindow::selectMarketCatalogEntry(int index) {
     if (index <= 0 || !m_marketCatalogSelector) return;
     const QVariantList values = m_marketCatalogSelector->itemData(index).toList();
-    if (values.size() != 3) return;
+    if (values.size() < 3) return;
     m_marketProvider->setText(values.at(0).toString());
     m_marketInstrument->setText(values.at(1).toString());
     m_marketInterval->setText(values.at(2).toString());
+    m_marketProviderSymbol = values.size() > 3 ? values.at(3).toString() : QString();
     m_marketSummary->setText(QStringLiteral("Stored instrument selected. Load the series to inspect its data."));
 }
 
