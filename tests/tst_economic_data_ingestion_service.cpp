@@ -2,6 +2,7 @@
 
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QFile>
 #include <QTemporaryDir>
 #include <QSqlDatabase>
 #include <QSqlError>
@@ -72,6 +73,100 @@ class EconomicDataIngestionServiceTest final : public QObject {
     Q_OBJECT
 
 private slots:
+    void verifiesHealthyEconomicDatabaseIntegrity() {
+        SqliteCanonicalDatasetStore store(QStringLiteral(":memory:"));
+        QString error;
+        QVERIFY2(store.open(&error), qPrintable(error));
+        EconomicDataIngestionService ingestion(store);
+        QVERIFY2(ingestion.persist(sampleResult(123.45), &error), qPrintable(error));
+        QVERIFY2(store.verifyIntegrity(&error), qPrintable(error));
+        QVERIFY(error.isEmpty());
+    }
+
+    void createsConsistentEconomicDatabaseBackup() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString databasePath = directory.filePath(QStringLiteral("economic-source.sqlite"));
+        const QString backupPath = directory.filePath(QStringLiteral("economic-backup.sqlite"));
+
+        SqliteCanonicalDatasetStore sourceStore(databasePath);
+        QString error;
+        QVERIFY2(sourceStore.open(&error), qPrintable(error));
+        EconomicDataIngestionService ingestion(sourceStore);
+        const AdapterResult source = sampleResult(123.45);
+        QVERIFY2(ingestion.persist(source, &error), qPrintable(error));
+
+        QVERIFY2(sourceStore.backupTo(backupPath, &error), qPrintable(error));
+        QVERIFY(QFile::exists(backupPath));
+
+        error.clear();
+        QVERIFY(!sourceStore.backupTo(databasePath, &error));
+        QVERIFY(error.contains(QStringLiteral("must differ")));
+        error.clear();
+        QVERIFY(!sourceStore.backupTo(backupPath, &error));
+        QVERIFY(error.contains(QStringLiteral("already exists")));
+
+        SqliteCanonicalDatasetStore backupStore(backupPath);
+        error.clear();
+        QVERIFY2(backupStore.open(&error), qPrintable(error));
+        QVERIFY2(backupStore.verifyIntegrity(&error), qPrintable(error));
+        const auto restored = backupStore.loadDataset(
+            QStringLiteral("fred"), QStringLiteral("fred.gdp"), &error);
+        QVERIFY2(restored.has_value(), qPrintable(error));
+        QCOMPARE(restored->observations.size(), qsizetype(2));
+        QCOMPARE(*restored->observations.at(0).value, 123.45);
+        QVERIFY(!restored->observations.at(1).value.has_value());
+        QCOMPARE(restored->provenance.attributionId, QStringLiteral("FRED"));
+    }
+
+    void rejectsEconomicBackupWhenDatabaseIsClosed() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        SqliteCanonicalDatasetStore store(
+            directory.filePath(QStringLiteral("closed-economic.sqlite")));
+        QString error;
+        QVERIFY(!store.backupTo(
+            directory.filePath(QStringLiteral("economic-backup.sqlite")), &error));
+        QVERIFY(error.contains(QStringLiteral("not open")));
+    }
+
+    void detectsEconomicForeignKeyViolationsDuringIntegrityVerification() {
+        QTemporaryDir directory;
+        QVERIFY(directory.isValid());
+        const QString databasePath = directory.filePath(QStringLiteral("economic-fk-check.sqlite"));
+
+        {
+            SqliteCanonicalDatasetStore store(databasePath);
+            QString error;
+            QVERIFY2(store.open(&error), qPrintable(error));
+        }
+
+        const QString connectionName = QStringLiteral("economic-foreign-key-violation-seed");
+        {
+            QSqlDatabase database = QSqlDatabase::addDatabase(
+                QStringLiteral("QSQLITE"), connectionName);
+            database.setDatabaseName(databasePath);
+            QVERIFY(database.open());
+            QSqlQuery query(database);
+            QVERIFY(query.exec(QStringLiteral("PRAGMA foreign_keys = OFF")));
+            QVERIFY2(query.exec(QStringLiteral(
+                "INSERT INTO economic_observations (provider_id,dataset_id,series_id,period,value,"
+                "unit,frequency,geography,seasonal_adjustment,measure_type,currency,base_currency,"
+                "quote_currency,scale_multiplier,denominator) VALUES "
+                "('orphan','missing.dataset','series','2025-01-01',NULL,'units','','','','',"
+                "'','','',1.0,'')")), qPrintable(query.lastError().text()));
+            database.close();
+        }
+        QSqlDatabase::removeDatabase(connectionName);
+
+        SqliteCanonicalDatasetStore store(databasePath);
+        QString error;
+        QVERIFY2(store.open(&error), qPrintable(error));
+        QVERIFY(!store.verifyIntegrity(&error));
+        QVERIFY(error.contains(QStringLiteral("foreign-key violation")));
+        QVERIFY(error.contains(QStringLiteral("economic_observations")));
+    }
+
     void persistsAndReloadsDatasetIncludingMissingValues() {
         QTemporaryDir directory;
         QVERIFY(directory.isValid());
