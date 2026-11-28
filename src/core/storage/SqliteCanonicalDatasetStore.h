@@ -21,6 +21,11 @@ public:
 
     [[nodiscard]] bool open(QString* errorMessage = nullptr);
     [[nodiscard]] bool isOpen() const;
+    // Checks SQLite page integrity and declared foreign-key relationships.
+    [[nodiscard]] bool verifyIntegrity(QString* errorMessage = nullptr) const;
+    // Creates a consistent, compact SQLite snapshot at a new destination path.
+    [[nodiscard]] bool backupTo(const QString& destinationPath,
+                                QString* errorMessage = nullptr) const;
 
     // Upserts dataset metadata and observations without deleting older periods.
     [[nodiscard]] bool upsertDataset(
