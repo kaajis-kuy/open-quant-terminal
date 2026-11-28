@@ -1,6 +1,6 @@
 # ADR 0003 — Application composition and degraded module startup
 
-- Status: Implemented; automated verification pending.
+- Status: Implemented and verified.
 - Date: 2026-11-28.
 
 ## Context
@@ -27,4 +27,9 @@ Provider pipelines, ingestion services, and SQLite stores existed as independent
 
 ## Verification
 
-Added tests cover separate database initialization, same-path rejection, independent module failure, missing FRED key handling, and mock-server FRED-to-SQLite persistence. Build and execution are pending in an environment with Qt 6.8 development packages.
+The Session 97 implementation was verified with:
+- Local X230 test run: 20/20 tests passed, 0 failures.
+- GitHub Actions run [#282](https://github.com/kaajis-kuy/open-quant-terminal/actions/runs/46122625087) on commit `b0884c2828a4a6f918dadeb03eb47d482c6f67ad`: Linux / Qt 6.8.3 configure, build, and test steps all succeeded.
+- The FRED refresh integration test uses a local mock HTTP server and temporary SQLite storage; it does not require a live FRED API key.
+
+This verification covers the Session 97 branch head above; it does not assert that a live external FRED request has been tested.
