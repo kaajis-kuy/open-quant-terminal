@@ -236,7 +236,7 @@ private slots:
                                                 source.interval, 1, 0, &error);
         QVERIFY2(first.has_value(), qPrintable(error));
         QCOMPARE(first->series.bars.size(), qsizetype(1));
-        QCOMPARE(first->series.bars.first().timestamp, source.bars.first().timestamp);
+        QCOMPARE(first->series.bars.first().timestamp, source.bars.last().timestamp);
         QVERIFY(first->hasMore);
         QCOMPARE(first->offset, qint64(0));
 
@@ -244,7 +244,7 @@ private slots:
                                                  source.interval, 1, 1, &error);
         QVERIFY2(second.has_value(), qPrintable(error));
         QCOMPARE(second->series.bars.size(), qsizetype(1));
-        QCOMPARE(second->series.bars.first().timestamp, source.bars.last().timestamp);
+        QCOMPARE(second->series.bars.first().timestamp, source.bars.first().timestamp);
         QVERIFY(!second->hasMore);
 
         const auto empty = store.loadSeriesPage(source.providerId, source.instrumentId,
