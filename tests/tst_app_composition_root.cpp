@@ -26,6 +26,8 @@ private slots:
         QVERIFY(composition.marketDatabasePath() != composition.economicDatabasePath());
         QVERIFY(composition.marketRefreshService() != nullptr);
         QVERIFY(composition.economicRefreshService() != nullptr);
+        QVERIFY(composition.marketExplorerQuery() != nullptr);
+        QVERIFY(composition.economicDataExplorerQuery() != nullptr);
     }
 
     void economicDatabaseFailureDoesNotDisableMarketModule() {
@@ -48,6 +50,7 @@ private slots:
         QVERIFY(!composition.economicStatus().errorMessage.isEmpty());
         QVERIFY(composition.marketRefreshService() != nullptr);
         QVERIFY(composition.economicRefreshService() == nullptr);
+        QVERIFY(composition.economicDataExplorerQuery() == nullptr);
     }
 
     void marketDatabaseFailureDoesNotDisableEconomicModule() {
@@ -68,6 +71,7 @@ private slots:
         QVERIFY(!composition.marketStatus().available);
         QVERIFY(composition.economicStatus().available);
         QVERIFY(composition.marketRefreshService() == nullptr);
+        QVERIFY(composition.marketExplorerQuery() == nullptr);
         QVERIFY(composition.economicRefreshService() != nullptr);
     }
 
