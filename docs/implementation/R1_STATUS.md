@@ -50,8 +50,16 @@
 - Existing Yahoo cancellation and provider-failure cases continue to assert that unsuccessful requests do not persist a dataset.
 - Exact-head CI for this test increment is pending.
 
+## FRED quality and failure coverage increment in progress
+
+- Extended the FRED refresh mock server to allow deterministic HTTP status and payload selection.
+- Added a partial-response round-trip test: FRED reports three total observations while returning two in the first allowed page; the test asserts Partial status, truncation metadata, persistence to SQLite, and preservation through the application economic read model.
+- Added an HTTP 403 provider-failure test asserting the refresh fails and no economic dataset is persisted.
+- Added a cancellation test asserting the refresh completes as failed/cancelled and no dataset is persisted.
+- Tests use loopback mock HTTP and temporary SQLite only; no live FRED API or credentials are required.
+- Exact-head CI for this increment is pending.
+
 ## Remaining R1 work
-- Add explicit partial-data round-trip coverage and economic-provider failure/cancellation coverage where not already exercised.
 - Add broader application/composition integration and UI smoke/regression tests.
 - Run final exact-head CI and review all stacked PRs; no merge without maintainer approval.
 
