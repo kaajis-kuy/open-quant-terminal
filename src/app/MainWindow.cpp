@@ -2,6 +2,10 @@
 
 #include "application/DataExplorerQueries.h"
 #include "application/CatalogQueries.h"
+#include "core/services/YahooMarketDataRefreshService.h"
+#include "core/services/FredEconomicRefreshService.h"
+#include "core/providers/YahooRequestBuilder.h"
+#include "core/providers/FredRequestBuilder.h"
 
 #include <QHeaderView>
 #include <QPainter>
@@ -17,6 +21,8 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QProgressBar>
+#include <QUuid>
 #include <QStatusBar>
 #include <QTabWidget>
 #include <QTableWidget>
@@ -220,13 +226,13 @@ private:
 };
 
 MainWindow::MainWindow(QWidget* parent)
-    : MainWindow(nullptr, nullptr, nullptr, nullptr, parent) {
+    : MainWindow(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, {}, parent) {
 }
 
 MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
                        oqt::application::EconomicDataExplorerQuery* economicQuery,
                        QWidget* parent)
-    : MainWindow(marketQuery, economicQuery, nullptr, nullptr, parent) {
+    : MainWindow(marketQuery, economicQuery, nullptr, nullptr, nullptr, nullptr, {}, parent) {
 }
 
 MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
@@ -234,11 +240,26 @@ MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
                        oqt::application::MarketInstrumentCatalogQuery* marketCatalog,
                        oqt::application::EconomicDatasetCatalogQuery* economicCatalog,
                        QWidget* parent)
+    : MainWindow(marketQuery, economicQuery, marketCatalog, economicCatalog,
+                 nullptr, nullptr, {}, parent) {
+}
+
+MainWindow::MainWindow(oqt::application::MarketExplorerQuery* marketQuery,
+                       oqt::application::EconomicDataExplorerQuery* economicQuery,
+                       oqt::application::MarketInstrumentCatalogQuery* marketCatalog,
+                       oqt::application::EconomicDatasetCatalogQuery* economicCatalog,
+                       oqt::services::YahooMarketDataRefreshService* marketRefresh,
+                       oqt::services::FredEconomicRefreshService* economicRefresh,
+                       std::function<bool(const QString&, const QString&, QString*)> economicRefreshStarter,
+                       QWidget* parent)
     : QMainWindow(parent),
       m_marketQuery(marketQuery),
       m_economicQuery(economicQuery),
       m_marketCatalog(marketCatalog),
-      m_economicCatalog(economicCatalog) {
+      m_economicCatalog(economicCatalog),
+      m_marketRefresh(marketRefresh),
+      m_economicRefresh(economicRefresh),
+      m_economicRefreshStarter(std::move(economicRefreshStarter)) {
     setObjectName("mainWindow");
     setWindowTitle("Open Quant Terminal");
     resize(1280, 800);
