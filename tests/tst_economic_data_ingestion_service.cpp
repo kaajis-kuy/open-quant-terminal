@@ -178,7 +178,7 @@ private slots:
             QStringLiteral("fred.gdp"), 1, 0, &error);
         QVERIFY2(first.has_value(), qPrintable(error));
         QCOMPARE(first->dataset.observations.size(), qsizetype(1));
-        QCOMPARE(first->dataset.observations.first().period, QDate(2025, 1, 1));
+        QCOMPARE(first->dataset.observations.first().period, QDate(2025, 4, 1));
         QVERIFY(first->hasMore);
         QCOMPARE(first->offset, qint64(0));
 
@@ -186,7 +186,7 @@ private slots:
             QStringLiteral("fred.gdp"), 1, 1, &error);
         QVERIFY2(second.has_value(), qPrintable(error));
         QCOMPARE(second->dataset.observations.size(), qsizetype(1));
-        QCOMPARE(second->dataset.observations.first().period, QDate(2025, 4, 1));
+        QCOMPARE(second->dataset.observations.first().period, QDate(2025, 1, 1));
         QVERIFY(!second->hasMore);
 
         const auto empty = store.loadDatasetPage(QStringLiteral("fred"),
