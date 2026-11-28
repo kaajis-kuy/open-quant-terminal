@@ -2,6 +2,7 @@
 
 #include "application/DataExplorerQueries.h"
 #include "application/CatalogQueries.h"
+#include "application/RefreshTaskController.h"
 #include "core/providers/FredPipeline.h"
 #include "core/providers/YahooPipeline.h"
 #include "core/services/EconomicDataIngestionService.h"
@@ -32,7 +33,8 @@ struct ModuleStartupStatus {
 };
 
 // Owns application services and their dependencies; UI classes remain consumers.
-class AppCompositionRoot final {
+class AppCompositionRoot final : public application::RefreshTaskController {
+    Q_OBJECT
 public:
     AppCompositionRoot() = default;
     ~AppCompositionRoot() = default;
@@ -57,6 +59,15 @@ public:
         QString requestId,
         QString* errorMessage = nullptr,
         int maxPages = 10);
+
+    [[nodiscard]] bool startMarketRefresh(
+        const QString& providerSymbol, const QString& canonicalInstrumentId,
+        const QString& interval, const QString& requestId) override;
+    [[nodiscard]] bool startEconomicRefresh(
+        const QString& datasetId, const QString& requestId,
+        QString* errorMessage = nullptr) override;
+    void cancelMarketRefresh() override;
+    void cancelEconomicRefresh() override;
 
     [[nodiscard]] services::YahooMarketDataRefreshService* marketRefreshService();
     [[nodiscard]] services::FredEconomicRefreshService* economicRefreshService();
