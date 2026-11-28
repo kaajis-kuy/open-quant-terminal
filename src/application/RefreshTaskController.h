@@ -1,6 +1,6 @@
 #pragma once
 
-#include "core/providers/ProviderResponse.h"
+#include "core/providers/ProviderAdapter.h"
 
 #include <QObject>
 #include <QString>
